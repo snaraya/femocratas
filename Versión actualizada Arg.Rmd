@@ -1,0 +1,868 @@
+---
+title: "Versión Actualizada Argentina"
+author: "Mariana de los Ángeles Vallejo Muñoz"
+date: "2025-10-23"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+Análisis Preliminar Femocratas Argentina
+
+```{r}
+
+# CARGA DE PAQUETES
+# install.packages(c("readtext","quanteda","quanteda.textstats","quanteda.textplots",
+#                    "readxl","janitor","stringi","dplyr","tidyr","ggplot2","readr"))
+library(readtext)
+library(quanteda)
+library(quanteda.textstats)
+library(quanteda.textplots)
+library(readxl)
+library(janitor)
+library(stringi)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(readr)
+```
+
+
+```{r}
+#CARGA DE DOCUMENTOS Y PAQUETES
+PATH_DOCS  <- "data_raw/interviews"               #Carpeta de documentps
+PATH_EXCEL <- "Clasificacion.xlsx"         #Excel de clasificación
+ENCODING   <- "UTF-8"
+
+dir.create("figs", showWarnings = FALSE)
+dir.create("outputs", showWarnings = FALSE)
+
+
+# LISTA Y LECTURA DE DOCUMENTOS DE ENTREVISTA 
+paths <- list.files("data_raw/interviews/argentina", pattern = "\\.docx$", full.names = TRUE)
+
+library(readtext)  # ya cargado, pero por si corres el chunk suelto
+docs <- readtext(paths)
+
+# LIMPIEZA BASE DE TEXTO / ESPACIOS EXTRA Y CARACTERES EXTRAÑOS
+docs$text <- gsub("\u00A0", " ", docs$text, fixed = TRUE)
+docs$text <- stringr::str_squish(docs$text)
+
+# DESCARTAR DOCUMENTOS VACÍOS
+docs <- subset(docs, nzchar(text))
+
+# REVISIÓN DE DOCUMENTOS
+nrow(docs)          # N° de documentos leídos
+head(docs$text, 1)  # muestra del primer texto
+```
+
+Lectura de las entrevistas
+```{r}
+ 
+# INGRESO DE ARCHIVOS TIPO .DOCX
+docs <- readtext::readtext(file.path(PATH_DOCS, "*.docx"), encoding = ENCODING)
+
+
+
+list.files(PATH_DOCS, pattern = "\\.docx$", full.names = TRUE)
+
+
+
+
+# LIMPIEZA DE CARGA
+# doc_id = nombre de archivo sin ruta
+docs$doc_id <- tools::file_path_sans_ext(basename(docs$doc_id))
+# cuerpo para lectura
+corp <- quanteda::corpus(docs, text_field = "text")
+docvars(corp, "doc_id") <- docs$doc_id
+```
+
+Normalización y creación de diccionario de limpieza STOPWORDS
+
+```{r}
+#USO DE STOPWORDS
+stop_es <- stopwords::stopwords("es")  # stopwords en español
+stop_custom <- c("eh","mmm","aja","bueno","este","osea","etc","si","no","ya","igual",              "eh","mmm","aja","bueno","este","osea", "V:", "E:", "A:", "E:", "V", "viste", "claro", "Sí", "Ah", "No", "ahora", "digo", "digamos", "montón", "vos", "acá", "Alejandra Mangano:", "pasa", "tenés", "obviamente", "hice", "podía", "dije", "vas", "venía", "iba", "empezar", "viene", "tema", "año", "años", "María", "Lucía", "Cuestión", "Cuestiones", "entonces", "ahi", "después", "hacer", "ahí", "ser", "creo", "momento", "ver", "parte", "bien", "se", "así", "sé", "cómo", "como", "cosas", "decir", "veces", "S:", "Cristina Oroño:")
+stop_all <- unique(c(stop_es, stop_custom))
+
+#TOKENS Y LIMPIEZA
+toks <- tokens(corp,
+               remove_punct   = TRUE,
+               remove_numbers = TRUE,
+               remove_symbols = TRUE)
+
+#TRANSFOFMACIÓN A MINUSCULA
+toks <- tokens_tolower(toks)
+
+#REMOVER STOPWORDS
+toks <- tokens_remove(toks, stop_all)
+
+#ELIMINAR ACENTOS (normalización)
+toks <- tokens_replace(toks,
+                       pattern = quanteda::featnames(quanteda::dfm(toks)),
+                       replacement = stringi::stri_trans_general(quanteda::featnames(quanteda::dfm(toks)), "Latin-ASCII"))
+
+#QUITAR TERMINOS DE UNA LETRA
+toks <- tokens_keep(toks, pattern = "^[a-z]{2,}$", valuetype = "regex")
+
+```
+
+
+
+Integración de documentos
+
+```{r}
+
+dfm_docs <- dfm(toks)
+# normalizar featnames (sin acentos) por si quedara algún resto
+fn <- featnames(dfm_docs)
+fn <- stringi::stri_trans_general(fn, "Latin-ASCII")
+colnames(dfm_docs) <- fn
+
+dfm_docs <- dfm_trim(dfm_docs, min_termfreq = 2)  
+```
+
+
+
+
+Integrar excel con detección y mapeo automático de columnas
+
+```{r}
+
+#IDENFICIAR HOJA DE EXCEL
+sheets <- readxl::excel_sheets(PATH_EXCEL)
+cat("Hojas en el Excel:", paste(sheets, collapse=", "), "\n")
+
+# USO DE HOJA EXACTA
+sheet_to_use <- sheets[1]
+
+clasif_raw <- readxl::read_excel(PATH_EXCEL, sheet = sheet_to_use)
+clasif <- janitor::clean_names(clasif_raw)
+
+cat("Columnas encontradas en el Excel (clean_names):\n")
+print(names(clasif))
+
+# NORMALIZAR ID PARA LA CLASIFICACIÓN
+norm_id <- function(x){
+  x <- as.character(x)
+  x <- trimws(tolower(x))
+  x <- stringi::stri_trans_general(x, "Latin-ASCII")
+  x <- tools::file_path_sans_ext(basename(x))
+  x <- gsub("[[:space:][:punct:]]+", "_", x)
+  x <- gsub("_+", "_", x); x <- gsub("^_|_$", "", x)
+  x
+}
+
+# DETECCIÓN Y RENOMBRAR COLUMNA KEY DE UNIÓN A doc_id 
+dv_dfm <- data.frame(doc_id = quanteda::docnames(dfm_docs))
+dv_dfm$doc_id_norm <- norm_id(dv_dfm$doc_id)
+
+cand_cols_key <- names(clasif)
+overlaps <- sapply(cand_cols_key, function(col){
+  sum(norm_id(clasif[[col]]) %in% dv_dfm$doc_id_norm, na.rm = TRUE)
+})
+best_col <- if (length(overlaps)) names(which.max(overlaps)) else character(0)
+
+if (length(best_col) == 0 || overlaps[[best_col]] == 0) {
+  stop("No se detectó columna llave (doc_id) en el Excel. Revisa names(clasif) impresos arriba y ajusta manualmente:\n",
+       "clasif <- dplyr::rename(clasif, doc_id = <nombre_real>)")
+}
+if (best_col != "doc_id") clasif <- dplyr::rename(clasif, doc_id = !!rlang::sym(best_col))
+
+#NORMALIZAR NOMBRES Y BUSQUEDA AJUSTADA
+norm_col <- function(x) {
+  x <- stringi::stri_trans_general(x, "Latin-ASCII")
+  x <- tolower(x)
+  x <- gsub("[^a-z0-9]+", "_", x)
+  x <- gsub("_+", "_", x); x <- gsub("^_|_$", "", x)
+  x
+}
+nms_norm <- setNames(norm_col(names(clasif)), names(clasif))
+
+# ESTABLECER BUSQUEDA POR PALABRAS CLAVE
+find_col <- function(target, keywords) {
+  # busca por keywords en nombres normalizados
+  hits <- names(nms_norm)[sapply(names(nms_norm), function(nm) {
+    any(stringr::str_detect(nms_norm[[nm]], paste0(keywords, collapse="|")))
+  })]
+  if (length(hits)) hits[1] else NA_character_
+}
+
+# GENERAR PATRONES POR VARIABLE
+cand_rama       <- find_col("rama",       c("^rama$", "rama_fem", "tipo_rama", "clasif_rama", "corriente", "femin"))
+cand_nivel      <- find_col("nivel",      c("^nivel$", "jerarquia", "nivel_"))
+cand_territorio <- find_col("territorio", c("^territorio$", "ambito", "jurisdic", "nacional|provinc"))
+cand_autonomia  <- find_col("autonomia",  c("^autonomia$", "autono", "grado_aut", "margen"))
+
+# NORMALIZAR TIPO DE FEMOCRATA
+col_tipo <- names(clasif)[grepl("tipo.*femoc", names(clasif), ignore.case = TRUE)]
+if (length(col_tipo) == 1) {
+  names(clasif)[names(clasif) == col_tipo] <- "tipo_femocrata"
+  clasif$tipo_femocrata <- tolower(trimws(clasif$tipo_femocrata))
+  clasif$tipo_femocrata <- dplyr::case_when(
+    grepl("estado",    clasif$tipo_femocrata, ignore.case = TRUE) ~ "estado",
+    grepl("gobierno",  clasif$tipo_femocrata, ignore.case = TRUE) ~ "gobierno",
+    grepl("profes",    clasif$tipo_femocrata, ignore.case = TRUE) ~ "profesional",
+    TRUE ~ clasif$tipo_femocrata
+  )
+} else {
+  message("[aviso] No se encontró columna de 'Tipo de Femocrata' en el Excel.")
+}
+
+# INCLUIR TIPO FEMOCRATA EN LA CLASIFICACIÓN DOCVARS
+cols_clasif <- intersect(c("rama","nivel","territorio","autonomia","tipo_femocrata"), names(clasif))
+
+
+auto_map <- c(rama = cand_rama, nivel = cand_nivel, territorio = cand_territorio, autonomia = cand_autonomia)
+cat("Mapeo automático propuesto (NA = no encontrado):\n")
+print(auto_map)
+
+
+
+# VERIFICAR COLUMNA DE CLASIFICACIÓN
+cols_found <- auto_map[!is.na(auto_map)]
+if (!length(cols_found)) {
+  stop("No se encontraron columnas de clasificación (rama/nivel/territorio/autonomia).\n",
+       "Usa names(clasif) impresos arriba y completa manualmente el 'auto_map[...] <- \"nombre_real\"'.")
+}
+
+# RENOMBRAR SEGÚN LA GUÍA ENTREGADA
+for (nm in names(cols_found)) {
+  src <- cols_found[[nm]]
+  if (nm %in% names(clasif)) next
+  if (!is.na(src) && src %in% names(clasif)) {
+    names(clasif)[names(clasif) == src] <- nm
+  }
+}
+
+# GENERAR JOIN
+clasif <- dplyr::mutate(clasif, doc_id_norm = norm_id(doc_id))
+dv      <- dv_dfm[, c("doc_id","doc_id_norm")]
+
+cols_clasif <- intersect(c("rama","nivel","territorio","autonomia", "tipo_femocrata"), names(clasif))
+if (length(cols_clasif) == 0) {
+  stop("Tras el mapeo, aún no hay columnas de clasificación. Completa el 'auto_map' manualmente arriba.")
+}
+
+dv_join <- dplyr::left_join(
+  dv,
+  dplyr::select(clasif, doc_id_norm, dplyr::all_of(cols_clasif)),
+  by = "doc_id_norm"
+)
+
+# LIMPIEZA Y ASIGNAR DOCVARS
+for (cn in cols_clasif) {
+  v <- dv_join[[cn]]
+  if (is.character(v)) { v <- tolower(trimws(v)); v[v==""] <- NA }
+  dv_join[[cn]] <- v
+}
+
+quanteda::docvars(dfm_docs)[, cols_clasif] <- dv_join[, cols_clasif, drop = FALSE]
+quanteda::docvars(toks)                    <- quanteda::docvars(dfm_docs)
+
+# PRIMER DIAGNOSTICO
+cat("Asignadas a docvars:", paste(cols_clasif, collapse=", "), "\n")
+if ("nivel" %in% cols_clasif)      { cat("\nDistribución 'nivel':\n");      print(table(quanteda::docvars(toks)[["nivel"]],      useNA="ifany")) }
+if ("territorio" %in% cols_clasif) { cat("\nDistribución 'territorio':\n"); print(table(quanteda::docvars(toks)[["territorio"]], useNA="ifany")) }
+if ("autonomia" %in% cols_clasif)  { cat("\nDistribución 'autonomia':\n");  print(table(quanteda::docvars(toks)[["autonomia"]],  useNA="ifany")) }
+if ("rama" %in% cols_clasif)       { cat("\nDistribución 'rama':\n");       print(table(quanteda::docvars(toks)[["rama"]],       useNA="ifany")) }
+
+
+
+```
+
+Creación de diccionarios temáticos (unigramas) según discutido 
+
+
+
+```{r}
+.sanea <- function(x){ x <- trimws(as.character(x)); x <- x[nchar(x)>0 & !is.na(x)]; unique(x) }
+
+defensa_terms <- .sanea(c(
+  "defend*", "sosten*", "mantener*", "preserv*", "garantiz*", "promov*",
+  "implement*", "articul*", "coordina*", "incid*", "estrateg*", "alianz*",
+  "presupuest*", "program*", "politic*", "public*", "derech*"
+))
+antigenero_terms <- .sanea(c(
+  "retroces*", "recort*", "derog*", "elimin*", "desfinanc*", "ajuste*",
+  "antigener*", "wok*", "milei", "decret*", "anulacion*"
+))
+brechas_terms <- .sanea(c(
+  "brech*", "obstacul*", "barrera*", "resistenc*", "traba*", "limitacion*",
+  "falta*", "recurso*", "apoyo*", "violenc*", "masculin*", "logic*",
+  "cuid*", "sobrecarg*"
+))
+
+dict_fem <- quanteda::dictionary(list(
+  defensa    = defensa_terms,
+  antigenero = antigenero_terms,
+  brechas    = brechas_terms
+))
+```
+
+
+REVISIÓN TEMÁTICA POR DOCUMENTOS
+
+```{r}
+
+dfm_dict  <- quanteda::dfm_lookup(dfm_docs, dictionary = dict_fem)
+
+
+
+
+doc_theme <- quanteda::convert(dfm_dict, to = "data.frame")
+
+doc_theme$doc_id <- quanteda::docnames(dfm_docs)
+
+for (cn in names(dict_fem)) {
+  doc_theme[[paste0(cn, "_bin")]] <- as.integer(doc_theme[[cn]] > 0)
+}
+
+dv_all <- as.data.frame(quanteda::docvars(dfm_docs))
+dv_all$doc_id <- quanteda::docnames(dfm_docs)
+
+doc_theme <- dplyr::left_join(doc_theme, dv_all, by = "doc_id")
+
+```
+
+
+
+RESUMENES POR GRUPO
+
+```{r}
+
+resumir_grupo <- function(df, group_var){
+  stopifnot(group_var %in% names(df))
+  df %>%
+    dplyr::group_by(.data[[group_var]]) %>%
+    dplyr::summarise(
+      n_docs = dplyr::n(),
+      defensa_pct    = round(mean(defensa_bin,    na.rm = TRUE)*100, 1),
+      antigenero_pct = round(mean(antigenero_bin, na.rm = TRUE)*100, 1),
+      brechas_pct    = round(mean(brechas_bin,    na.rm = TRUE)*100, 1)
+    ) %>% dplyr::arrange(dplyr::desc(n_docs))
+}
+
+tab_nivel      <- if ("nivel"          %in% names(doc_theme)) resumir_grupo(doc_theme, "nivel")          else NULL
+tab_territorio <- if ("territorio"     %in% names(doc_theme)) resumir_grupo(doc_theme, "territorio")     else NULL
+tab_autonomia  <- if ("autonomia"      %in% names(doc_theme)) resumir_grupo(doc_theme, "autonomia")      else NULL
+tab_rama       <- if ("rama"           %in% names(doc_theme)) resumir_grupo(doc_theme, "rama")           else NULL
+tab_tipo       <- if ("tipo_femocrata" %in% names(doc_theme)) resumir_grupo(doc_theme, "tipo_femocrata") else NULL
+
+if (!is.null(tab_nivel))      { readr::write_csv(tab_nivel,      "outputs/resumen_nivel.csv");      print(knitr::kable(tab_nivel,      caption = "Menciones por Nivel")) }
+if (!is.null(tab_territorio)) { readr::write_csv(tab_territorio, "outputs/resumen_territorio.csv"); print(knitr::kable(tab_territorio, caption = "Menciones por Territorio")) }
+if (!is.null(tab_autonomia))  { readr::write_csv(tab_autonomia,  "outputs/resumen_autonomia.csv");  print(knitr::kable(tab_autonomia,  caption = "Menciones por Autonomía")) }
+if (!is.null(tab_rama))       { readr::write_csv(tab_rama,       "outputs/resumen_rama.csv");       print(knitr::kable(tab_rama,       caption = "Menciones por Rama")) }
+if (!is.null(tab_tipo))       { readr::write_csv(tab_tipo,       "outputs/resumen_tipo.csv");        print(knitr::kable(tab_tipo,       caption = "Menciones por Tipo de Femócrata")) }
+
+
+```
+
+
+CREACIÓN DE GRÁFICOS DE BARRA SIMPLE
+
+```{r}
+
+plot_barras <- function(tabla, varlab) {
+  long <- tabla %>%
+    dplyr::rename(grupo = 1) %>%
+    tidyr::pivot_longer(cols = dplyr::ends_with("_pct"), names_to = "tema", values_to = "pct")
+
+  p <- ggplot2::ggplot(long, ggplot2::aes(x = grupo, y = pct, fill = tema)) +
+    ggplot2::geom_col(position = ggplot2::position_dodge()) +
+    ggplot2::geom_text(ggplot2::aes(label = paste0(pct, "%")),
+                       position = ggplot2::position_dodge(width = 0.9),
+                       vjust = -0.2, size = 3, check_overlap = TRUE) +
+    ggplot2::labs(x = varlab, y = "% de entrevistas con mención", fill = "Tema",
+                  title = paste("Menciones de temática por", varlab)) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+  print(p)
+  # nombre de archivo seguro (sin tildes/espacios)
+  fname <- gsub(" ", "_", tolower(iconv(varlab, from = "", to = "ASCII//TRANSLIT")))
+  ggplot2::ggsave(file.path("figs", paste0("barras_", fname, ".png")),
+                  p, width = 8, height = 6, dpi = 300)
+}
+
+
+
+#Gráficos sencillos
+
+if (exists("tab_nivel")      && !is.null(tab_nivel))      plot_barras(tab_nivel,      "Nivel")
+if (exists("tab_territorio") && !is.null(tab_territorio)) plot_barras(tab_territorio, "Territorio")
+if (exists("tab_autonomia")  && !is.null(tab_autonomia))  plot_barras(tab_autonomia,  "Autonomía")
+if (exists("tab_rama")       && !is.null(tab_rama))       plot_barras(tab_rama,       "Rama feminista")
+if (exists("tab_tipo")       && !is.null(tab_tipo))       plot_barras(tab_tipo,       "Tipo de Femócrata")
+
+
+```
+
+BÚSQUEDA DE CITAS PARA APORTAR A LA INVESTIGACIÓN
+
+```{r}
+
+
+kwic_citas <- function(toks_obj, filtro_vec, patterns, n = 2, window = 7) {
+  idx <- which(filtro_vec)
+  if (!length(idx)) return(NULL)
+  kw <- quanteda::kwic(toks_obj[idx], pattern = patterns, valuetype = "glob",
+                       case_insensitive = TRUE, window = window)
+  df <- as.data.frame(kw)
+  if (!nrow(df)) return(NULL)
+  set.seed(123)
+  df %>%
+    dplyr::mutate(cita = paste0(trimws(pre), " ", toupper(keyword), " ", trimws(post))) %>%
+    dplyr::transmute(doc = docname, cita) %>%
+    dplyr::slice_sample(n = min(n, nrow(.)))
+}
+
+citas_por_grupo <- function(var, tema_nombre, patterns) {
+  if (!var %in% colnames(quanteda::docvars(toks))) {
+    cat("\n[AVISO] docvar no encontrado:", var, "\n"); return(invisible(NULL))
+  }
+  dv <- quanteda::docvars(toks)[[var]]
+  lvls <- stats::na.omit(unique(dv))
+  if (!length(lvls)) { cat("\n[AVISO] Sin niveles en", var, "\n"); return(invisible(NULL)) }
+  for (lv in lvls) {
+    cat("\n##", var, "=", lv, "—", tema_nombre, "\n")
+    filtro <- !is.na(dv) & dv == lv
+    cit <- kwic_citas(toks, filtro, patterns, n = 2, window = 7)
+    if (is.null(cit)) cat("(Sin citas)\n") else print(knitr::kable(cit, align = "l"))
+  }
+}
+
+# Llamadas (usa los vectores defensa_terms / antigenero_terms / brechas_terms definidos antes)
+
+# NIVEL
+citas_por_grupo("nivel",      "Defensa/acción",       defensa_terms)
+citas_por_grupo("nivel",      "Contexto antigénero",  antigenero_terms)
+citas_por_grupo("nivel",      "Brechas/obstáculos",   brechas_terms)
+
+# TERRITORIO
+citas_por_grupo("territorio", "Defensa/acción",       defensa_terms)
+citas_por_grupo("territorio", "Contexto antigénero",  antigenero_terms)
+citas_por_grupo("territorio", "Brechas/obstáculos",   brechas_terms)
+
+# AUTONOMÍA
+citas_por_grupo("autonomia",  "Defensa/acción",       defensa_terms)
+citas_por_grupo("autonomia",  "Contexto antigénero",  antigenero_terms)
+citas_por_grupo("autonomia",  "Brechas/obstáculos",   brechas_terms)
+
+# RAMA
+citas_por_grupo("rama",       "Defensa/acción",       defensa_terms)
+citas_por_grupo("rama",       "Contexto antigénero",  antigenero_terms)
+citas_por_grupo("rama",       "Brechas/obstáculos",   brechas_terms)
+
+
+
+#TIPO
+citas_por_grupo("tipo_femocrata", "Defensa/acción",       defensa_terms)
+citas_por_grupo("tipo_femocrata", "Contexto antigénero",  antigenero_terms)
+citas_por_grupo("tipo_femocrata", "Brechas/obstáculos",   brechas_terms)
+
+
+
+```
+
+
+
+Conteos y revisiones generales
+
+
+
+```{r}
+#GENERALES
+
+safelvls <- function(var) {
+  if (!var %in% colnames(quanteda::docvars(dfm_docs))) return(character(0))
+  lv <- stats::na.omit(unique(quanteda::docvars(dfm_docs)[[var]]))
+  lv[!is.na(lv)]
+}
+safe_subset_dfm <- function(var, lvl) {
+  if (!var %in% colnames(quanteda::docvars(dfm_docs))) return(NULL)
+  id <- which(!is.na(quanteda::docvars(dfm_docs)[[var]]) & quanteda::docvars(dfm_docs)[[var]] == lvl)
+  if (!length(id)) return(NULL)
+  dfm_docs[id, ]
+}
+safe_subset_toks <- function(var, lvl) {
+  if (!var %in% colnames(quanteda::docvars(toks))) return(NULL)
+  id <- which(!is.na(quanteda::docvars(toks)[[var]]) & quanteda::docvars(toks)[[var]] == lvl)
+  if (!length(id)) return(NULL)
+  toks[id]
+}
+ensure_dir <- function(p) if (!dir.exists(p)) dir.create(p, recursive = TRUE)
+
+ensure_dir("figs"); ensure_dir("outputs")
+
+```
+
+```{r}
+#PALABRAS CLAVE POR GRUPO
+library(quanteda.textstats); library(quanteda.textplots); library(ggplot2); library(readr)
+
+run_keyness_for <- function(var, n_show = 20) {
+  lv <- safelvls(var); if (!length(lv)) { message("[keyness] sin niveles en ", var); return(NULL) }
+  dv <- quanteda::docvars(dfm_docs)[[var]]
+  ok <- !is.na(dv); if (!any(ok)) return(NULL)
+  dfm_sub <- dfm_docs[ok, ]
+  for (L in lv) {
+    grp <- dv[ok] == L
+    if (sum(grp) < 2 || sum(!grp) < 2) { message("[keyness:", var, "=", L, "] pocos docs"); next }
+    k <- quanteda.textstats::textstat_keyness(dfm_sub, target = grp)
+    p <- quanteda.textplots::textplot_keyness(k, n = n_show) + ggplot2::labs(
+      title = paste("Keyness –", var, "=", L), subtitle = "positivos = sobrerrepresentados"
+    )
+    print(p)
+    ggsave(file.path("figs", paste0("keyness_", var, "_", L, ".png")), p, width = 8, height = 6, dpi = 300)
+    readr::write_csv(k, file.path("outputs", paste0("keyness_", var, "_", L, ".csv")))
+  }
+}
+
+# Llama para las variables que tengas (ajusta esta lista a tu Excel)
+for (v in c("nivel","territorio","autonomia","rama", "tipo_femocrata")) run_keyness_for(v)
+
+```
+
+
+
+```{r}
+# ---- 11.2 Expresiones frecuentes: bigramas y trigramas (global y por grupo) ----
+library(dplyr); library(tidyr); library(knitr)
+
+top_ngrams_global <- function(n = 2, top_n = 30) {
+  dfm_ng <- quanteda::dfm(quanteda::tokens_ngrams(toks, n = n))
+  f <- quanteda.textstats::textstat_frequency(dfm_ng, n = top_n)
+  knitr::kable(f[, c("feature","frequency")], caption = paste("Top", top_n, "—", n, "gramas (global)"))
+}
+top_ngrams_by <- function(var, n = 2, top_n = 20) {
+  lv <- safelvls(var); if (!length(lv)) return(invisible(NULL))
+  for (L in lv) {
+    T <- safe_subset_toks(var, L); if (is.null(T)) next
+    dfm_ng <- quanteda::dfm(quanteda::tokens_ngrams(T, n = n))
+    if (quanteda::nfeat(dfm_ng)==0) next
+    f <- quanteda.textstats::textstat_frequency(dfm_ng, n = top_n)
+    cat("\n##", var, "=", L, "— Top", top_n, n, "gramas\n")
+    print(knitr::kable(f[, c("feature","frequency")]))
+  }
+}
+
+top_ngrams_global(2, 30); top_ngrams_global(3, 30)
+for (v in c("nivel","territorio","autonomia","rama")) { top_ngrams_by(v, 2, 20); top_ngrams_by(v, 3, 20) }
+
+```
+
+Modelo de temas (No lo utilizamos) (LDA)
+
+
+```{r}
+
+
+library(topicmodels)
+
+run_lda <- function(dfm_in, K = 4, top_terms = 10) {
+  dfm_small <- quanteda::dfm_trim(dfm_in, min_termfreq = 3)
+  if (quanteda::nfeat(dfm_small) < 50 || quanteda::ndoc(dfm_small) < 6) {
+    message("[LDA] datos insuficientes (se necesitan más docs/terminos)"); return(NULL)
+  }
+  dtm <- quanteda::convert(dfm_small, to = "topicmodels")
+  set.seed(123)
+  fit <- topicmodels::LDA(dtm, k = K, control = list(seed = 123))
+  tt <- terms(fit, top_terms)
+  td <- as.data.frame(tt)
+  # tabla por tópico
+  for (k in seq_len(K)) {
+    topk <- data.frame(term = tt[,k], rank = seq_len(nrow(tt)))
+    g <- ggplot(topk, aes(x = reorder(term, -rank), y = -rank)) +
+      geom_col() + coord_flip() + theme_minimal() +
+      labs(title = paste("LDA – Tópico", k), x = NULL, y = "Importancia (ranking)")
+    print(g)
+    ggsave(file.path("figs", paste0("lda_topico_", k, ".png")), g, width = 6, height = 5, dpi = 300)
+  }
+  # tópico dominante por documento
+  gamma <- as.data.frame(topicmodels::posterior(fit)$topics)
+  gamma$doc_id <- rownames(gamma)
+  gamma$dom_topic <- apply(gamma[, seq_len(K), drop = FALSE], 1, which.max)
+  readr::write_csv(gamma, "outputs/lda_docs_gamma.csv")
+  invisible(list(model = fit, gamma = gamma, terms = tt))
+}
+
+lda_out <- run_lda(dfm_docs, K = 4, top_terms = 10)
+
+```
+
+
+Cluster de documento (No lo utilizamos)
+
+```{r}
+
+library(stats)
+library(quanteda.textstats)
+library(ggplot2)
+
+#run_clustering <- function(dfm_in, n_terms = 1000) {
+  dfm_tfidf <- quanteda::dfm_tfidf(dfm_in)
+  
+  # mantener los términos más frecuentes (para reducir ruido)
+  keep <- names(quanteda::topfeatures(dfm_in, n = min(n_terms, quanteda::nfeat(dfm_in))))
+  M <- as.matrix(dfm_tfidf[, keep])
+  
+  # quitar documentos vacíos
+  nonzero <- rowSums(M) > 0
+  M <- M[nonzero, , drop = FALSE]
+  if (nrow(M) < 4) {
+    message("[cluster] datos insuficientes para clustering")
+    return(NULL)
+  }
+
+  # calcular similitud coseno con quanteda.textstats
+  sim <- quanteda.textstats::textstat_simil(dfm_tfidf, margin = "documents", method = "cosine")
+  sim_mat <- as.matrix(sim)
+  dist_mat <- as.dist(1 - sim_mat)  # convertir similitud en distancia
+
+  # clustering jerárquico con método ward (usa la matriz de distancia)
+  hc <- hclust(dist_mat, method = "ward.D2")
+  plot(hc, main = "Clustering de entrevistas (distancia coseno, tf-idf)")
+
+  # proyección PCA para visualización
+  pc <- prcomp(M, center = TRUE, scale. = TRUE)
+  DF <- data.frame(
+    PC1 = pc$x[,1], 
+    PC2 = pc$x[,2],
+    doc_id = rownames(pc$x),
+    nivel = quanteda::docvars(dfm_in)[["nivel"]],
+    territorio = quanteda::docvars(dfm_in)[["territorio"]],
+    autonomia = quanteda::docvars(dfm_in)[["autonomia"]],
+    rama = quanteda::docvars(dfm_in)[["rama"]]
+  )
+
+  g <- ggplot(DF, aes(PC1, PC2, color = nivel, shape = territorio)) +
+    geom_point(size = 2, alpha = 0.8) +
+    theme_minimal() +
+    labs(
+      title = "PCA de entrevistas (tf-idf)",
+      subtitle = "Color = nivel | Forma = territorio"
+    )
+
+  print(g)
+  ggsave("figs/pca_docs.png", g, width = 8, height = 6, dpi = 300)
+
+  invisible(list(hc = hc, pca = DF))
+}
+
+clu_out <- run_clustering(dfm_docs, n_terms = 1000)
+
+
+```
+
+
+NUEVOS FOCOS DE CONTENIDO: ONG, partidos y movimiento
+
+```{r}
+
+library(quanteda)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(purrr)
+
+
+# INTEGRAR PATRONES DE BUSQUEDA
+foco_ong <- c("ong*", "organizacion*", "asociacion*", "sociedad civil", "fundacion*")
+foco_partidos <- c("partido*", "militancia*", "politic*", "coalicion*", "peron*", "kirchner*", "Milei", "Milite", "Militar")
+foco_mov <- c("feminist*", "movimiento*", "colectiva*", "red*", "activismo*", "feminismo*", "lucha")
+
+# MEDICIÓN DE FRECUENCIA (2)
+calc_foco <- function(toks, pattern, name){
+  kw <- kwic(toks, pattern = pattern, valuetype = "glob", case_insensitive = TRUE)
+  docs_con_foco <- unique(kw$docname)
+  df <- data.frame(doc_id = quanteda::docnames(toks),
+                   has_foco = quanteda::docnames(toks) %in% docs_con_foco)
+  names(df)[2] <- name
+  df
+}
+
+df_ong  <- calc_foco(toks, foco_ong,  "foco_ong")
+df_part <- calc_foco(toks, foco_partidos, "foco_partidos")
+df_mov  <- calc_foco(toks, foco_mov,  "foco_mov")
+
+#INTEGRACIÓN DE RESULTADOS CON DOCVARS
+focos_df <- reduce(list(df_ong, df_part, df_mov), full_join, by = "doc_id")
+for (col in names(focos_df)[-1]) {
+  quanteda::docvars(toks)[[col]] <- focos_df[[col]]
+  quanteda::docvars(dfm_docs)[[col]] <- focos_df[[col]]
+}
+
+# RESUMEN GENERAL Y GRÁFICO COMPARATIVO
+foco_summary <- data.frame(
+  Foco = c("ONG", "Partidos políticos", "Movimiento feminista"),
+  Menciones = c(sum(focos_df$foco_ong, na.rm = TRUE),
+                sum(focos_df$foco_partidos, na.rm = TRUE),
+                sum(focos_df$foco_mov, na.rm = TRUE))
+)
+knitr::kable(foco_summary, caption = "Presencia de focos temáticos en entrevistas")
+
+g <- ggplot(foco_summary, aes(x = Foco, y = Menciones, fill = Foco)) +
+  geom_col() + theme_minimal() +
+  labs(title = "Focos de contenido más mencionados", y = "Número de entrevistas con mención")
+print(g)
+ggsave("figs/focos_contenido_global.png", g, width = 7, height = 5, dpi = 300)
+
+```
+
+Gráficos comparativos por foco
+
+```{r}
+
+library(dplyr); library(tidyr); library(ggplot2); library(knitr)
+
+ensure_dir <- function(p) if (!dir.exists(p)) dir.create(p, recursive = TRUE)
+ensure_dir("figs"); ensure_dir("outputs")
+
+
+dv_all <- as.data.frame(quanteda::docvars(dfm_docs))
+dv_all$doc_id <- quanteda::docnames(dfm_docs)
+
+focos_cols <- intersect(c("foco_ong","foco_partidos","foco_mov"), names(dv_all))
+if (length(focos_cols) == 0) {
+  stop("[focos] No encuentro columnas foco (foco_ong / foco_partidos / foco_mov). Corre el Paso 13.2–13.3 primero.")
+}
+
+#NORMALIZAR A LOGICOS
+for (cc in focos_cols) {
+  if (!is.logical(dv_all[[cc]])) {
+    dv_all[[cc]] <- as.logical(dv_all[[cc]])
+  }
+}
+
+#RESUMEN POR GRUPO
+resumir_focos_por <- function(df, group_var, focos = focos_cols) {
+  if (!group_var %in% names(df)) return(NULL)
+  df %>%
+    filter(!is.na(.data[[group_var]])) %>%
+    group_by(.data[[group_var]]) %>%
+    summarise(
+      n_docs = n(),
+      across(all_of(focos), ~ round(mean(.x, na.rm = TRUE) * 100, 1), .names = "{.col}_pct")
+    ) %>%
+    arrange(desc(n_docs))
+}
+
+#CREACIÓN DE GRÁFICO
+plot_barras_focos <- function(tabla, varlab) {
+  if (is.null(tabla) || nrow(tabla) == 0) return(invisible(NULL))
+  long <- tabla %>%
+    rename(grupo = 1) %>%
+    select(-n_docs) %>%
+    pivot_longer(cols = ends_with("_pct"), names_to = "foco", values_to = "pct") %>%
+    mutate(foco = dplyr::case_when(
+      foco == "foco_ong_pct" ~ "ONG",
+      foco == "foco_partidos_pct" ~ "Partidos",
+      foco == "foco_mov_pct" ~ "Movimiento",
+      TRUE ~ foco
+    ))
+  p <- ggplot(long, aes(x = grupo, y = pct, fill = foco)) +
+    geom_col(position = position_dodge()) +
+    geom_text(aes(label = paste0(pct, "%")),
+              position = position_dodge(width = 0.9),
+              vjust = -0.2, size = 3, check_overlap = TRUE) +
+    labs(x = varlab, y = "% de entrevistas con mención", fill = "Foco",
+         title = paste("Mención de focos por", varlab)) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  print(p)
+  safe <- gsub(" ", "_", tolower(iconv(varlab, from = "", to = "ASCII//TRANSLIT")))
+  ggplot2::ggsave(file.path("figs", paste0("barras_focos_", safe, ".png")),
+                  p, width = 8, height = 6, dpi = 300)
+}
+
+# CLASIFICACIONES A GRAFICAR
+group_vars <- intersect(c("nivel","territorio","autonomia","rama","tipo_femocrata"), names(dv_all))
+
+# TABLAS, DOCUMENTOS Y GRÁFICO
+for (gv in group_vars) {
+  tab <- resumir_focos_por(dv_all, gv, focos_cols)
+  cat("\n### Resumen focos por", gv, "\n")
+  if (is.null(tab) || nrow(tab) == 0) { cat("(sin datos)\n"); next }
+  print(knitr::kable(tab, caption = paste("Focos por", gv)))
+  readr::write_csv(tab, file.path("outputs", paste0("resumen_focos_por_", gv, ".csv")))
+  plot_barras_focos(tab, varlab = tools::toTitleCase(gsub("_", " ", gv)))
+}
+
+```
+
+
+
+
+
+CITAS A TRAVÉS DE NUEVOS FOCOS
+
+
+```{r}
+
+library(quanteda); library(dplyr); library(knitr); library(readr)
+
+
+ong_terms       <- c("ong*", "organizacion*", "asociacion*", "sociedad civil", "fundacion*")
+partidos_terms  <- c("partido*", "militancia*", "politic*", "coalicion*", "peron*", "kirchner*")
+movfem_terms    <- c("feminist*", "movimiento*", "colectiva*", "red*", "activismo*", "feminismo*")
+
+
+ensure_dir <- function(p) if (!dir.exists(p)) dir.create(p, recursive = TRUE)
+ensure_dir("outputs")
+
+kwic_citas <- function(toks_obj, filtro_vec, patterns, n = 2, window = 7) {
+  idx <- which(filtro_vec)
+  if (!length(idx)) return(NULL)
+  kw <- quanteda::kwic(toks_obj[idx], pattern = patterns, valuetype = "glob",
+                       case_insensitive = TRUE, window = window)
+  df <- as.data.frame(kw)
+  if (!nrow(df)) return(NULL)
+  set.seed(123)
+  df %>%
+    dplyr::mutate(cita = paste0(trimws(pre), " ", toupper(keyword), " ", trimws(post))) %>%
+    dplyr::transmute(doc = docname, cita) %>%
+    dplyr::slice_sample(n = min(n, nrow(.)))
+}
+
+citas_por_grupo <- function(var, tema_nombre, patterns, n_citas = 2, window = 7, save_csv = TRUE) {
+  if (!var %in% colnames(quanteda::docvars(toks))) {
+    cat("\n[AVISO] docvar no encontrado:", var, "\n"); return(invisible(NULL))
+  }
+  dv <- quanteda::docvars(toks)[[var]]
+  lvls <- stats::na.omit(unique(dv))
+  if (!length(lvls)) { cat("\n[AVISO] Sin niveles en", var, "\n"); return(invisible(NULL)) }
+
+  for (lv in lvls) {
+    cat("\n##", var, "=", lv, "—", tema_nombre, "\n")
+    filtro <- !is.na(dv) & dv == lv
+    cit <- kwic_citas(toks, filtro, patterns, n = n_citas, window = window)
+    if (is.null(cit)) {
+      cat("(Sin citas)\n")
+    } else {
+      print(knitr::kable(cit, align = "l"))
+      if (save_csv) {
+        # nombre de archivo seguro
+        safe <- function(x) gsub("[^a-z0-9]+","_", tolower(iconv(x, from = "", to = "ASCII//TRANSLIT")))
+        fn <- file.path("outputs", paste0("citas_", safe(tema_nombre), "_", safe(var), "_", safe(lv), ".csv"))
+        readr::write_csv(cit, fn)
+      }
+    }
+  }
+}
+
+# LISTA DE CLASIFICACIONES
+clasifs <- c("nivel","territorio","autonomia","rama","tipo_femocrata")
+clasifs <- clasifs[clasifs %in% colnames(quanteda::docvars(toks))]
+
+
+
+# INTEGRACIÓN DE NUEVOS FOCOS
+for (cv in clasifs) {
+  citas_por_grupo(cv, "ONG",                   ong_terms,       n_citas = 5, window = 7)
+  citas_por_grupo(cv, "Partidos políticos",    partidos_terms,  n_citas = 3, window = 7)
+  citas_por_grupo(cv, "Movimiento feminista",  movfem_terms,    n_citas = 3, window = 7)
+}
+
+```
+

@@ -1,0 +1,172 @@
+---
+title: "Revisión corpus"
+author: "Soledad Araya"
+date: "2026-04-02"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+# General
+library(tidyverse)
+
+# texto
+library(quanteda)
+library(quanteda.textstats)
+library(tidytext)
+library(readtext)
+library(stringi)
+
+# ggplot
+library(hrbrthemes)
+```
+
+# Carga de documentos
+
+```{r}
+# Dirección por país
+paths <- list.files("data_raw/interviews/argentina", pattern = "\\.docx$", full.names = TRUE)
+
+docs <- readtext(paths)
+
+docs <- docs |> 
+  mutate(text = stri_trans_general(text, "latin-ascii"),
+         text = str_remove_all(text, "[[:punct:]]"),
+         text = str_to_lower(text),
+         text = str_squish(text))
+
+head(docs$text, 2)  # muestra del primer texto
+
+docs <- docs |> 
+  mutate(pais = "argentina")
+```
+
+Identificador de entrevista sin extensión
+
+```{r}
+docs$doc_id <- tools::file_path_sans_ext(basename(docs$doc_id))
+```
+
+Integrar Clasificacion.xlsx
+
+```{r}
+entrevistas_arg <- readxl::read_xlsx("Clasificacion.xlsx") |> 
+  janitor::clean_names()
+
+colnames(entrevistas_arg)
+
+docs <- docs |> 
+  left_join(entrevistas_arg, by = c("doc_id"="entrevistas"))
+
+colnames(docs)
+```
+
+# Corpus
+
+```{r}
+corp <- quanteda::corpus(docs, text_field = "text")
+```
+
+# Estandarización
+
+Diccionario de stopwords (01-limpieza)
+
+```{r}
+stop_custom_arg <- readxl::read_xlsx("palabras_arg_rev.xlsx")
+
+stop_custom_arg <- stop_custom_arg |> 
+  filter(eliminar == 1) |> 
+  select(word) |> 
+  pull()
+```
+
+Eliminar stopwords del corpus
+
+```{r}
+stop_es <- stopwords::stopwords("es")  # stopwords en español
+
+stop_all <- unique(c(stop_es, stop_custom_arg))
+
+toks <- tokens(corp,
+               remove_punct   = TRUE,
+               remove_numbers = TRUE,
+               remove_symbols = TRUE)
+
+# Remover stopwords
+
+toks <- tokens_remove(toks, stop_all)
+
+# Quitar términos de dos o menos letras
+
+toks <- tokens_keep(toks, pattern = "^[[:alpha:]]{3,}$", valuetype = "regex")
+```
+
+Dejar sólo palabras con un mínimo de 2 repeticiones
+
+```{r}
+dfm_docs <- dfm(toks)
+
+dfm_docs <- dfm_trim(dfm_docs, min_termfreq = 2)  
+```
+
+
+
+# Exploración de base de datos
+
+## Gráfico de barras por grupo
+
+```{r}
+dfm_grouped <- dfm_group(dfm_docs, groups = tipo_de_femocrata)
+
+topfeatures(dfm_grouped, 50)
+```
+
+```{r}
+df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
+  pivot_longer(!doc_id,
+               names_to = "palabra",
+               values_to = "frecuencia")
+```
+
+```{r}
+df_tidy  |> 
+  group_by(doc_id)  |> 
+  slice_max(frecuencia, n = 10)  |> 
+  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
+  geom_col(show.legend = FALSE) +
+  facet_grid(rows = vars(doc_id), scales = "free") +
+  scale_fill_flexoki_light() +
+  coord_flip() +
+  theme_ipsum()
+```
+
+## Comparación entre grupos de referencia
+
+```{r}
+library(quanteda.textplots)
+
+docvars(dfm_docs)
+
+key <- textstat_keyness(dfm_docs, target = docvars(dfm_docs)$rama_feminista == "Militante")
+
+textplot_keyness(key,
+                 n = 10,
+                 color = c("#669bbc", "#c1121f"),
+                 labelcolor = "black",
+                 font = "Roboto") +
+  scale_x_continuous(limits = c(-100,80)) +
+  theme_ipsum() +
+  theme(axis.text.y = element_blank(),
+        axis.title = element_blank())
+```
+
+
+# Revisión temática de acuerdo a diccionario
+
+```{r}
+dfm_dict  <- quanteda::dfm_lookup(dfm_docs, dictionary = dict_fem)
+
+doc_theme <- quanteda::convert(dfm_dict, to = "data.frame")
+```
+

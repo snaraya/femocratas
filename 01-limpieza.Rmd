@@ -1,0 +1,96 @@
+---
+title: "Stopwords"
+author: "Soledad Araya"
+date: "2026-04-02"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(tidytext)
+library(tidyverse)
+```
+
+# Carga de documentos
+
+```{r}
+# Dirección por país
+paths <- list.files("data_raw/interviews/argentina", pattern = "\\.docx$", full.names = TRUE)
+
+docs <- readtext(paths)
+
+docs <- docs |> 
+  mutate(text = stri_trans_general(text, "latin-ascii"),
+         text = str_remove_all(text, "[[:punct:]]"),
+         text = str_to_lower(text),
+         text = str_squish(text))
+
+head(docs$text, 2)  # muestra del primer texto
+
+docs <- docs |> 
+  mutate(pais = "argentina")
+```
+
+# Diccionario de stopwords por país:
+
+```{r}
+
+# Argentina
+
+revision_palabras <- docs |> 
+  unnest_tokens(word, text)  |> 
+  count(word)
+
+revision_palabras <- revision_palabras |> 
+  filter(!str_detect(word, "\\d")) |> # Eliminar números
+  filter(nchar(word) > 2) # Eliminar palabras 2 o menos letras
+
+stop_es <- tibble(word = stopwords("es"))
+
+revision_palabras_limpia <- revision_palabras  |> 
+  anti_join(stop_es, by = "word")
+
+revision_palabras_limpia <- revision_palabras_limpia |> 
+  filter(n > 10)
+
+writexl::write_xlsx(revision_palabras_limpia, "palabras_arg.xlsx")
+```
+
+
+# Bigramas
+
+Posibles combinaciones de palabras a tener en consideración para el análisis:
+
+```{r}
+
+# Argentina
+
+bigrama <- docs  |> 
+  unnest_tokens(bigrama, text, token = "ngrams", n = 2) |> 
+  count(bigrama) |> 
+  filter(n > 20)
+
+bigrama_sep <- bigrama  |> 
+  separate(bigrama, into = c("palabra1", "palabra2"), sep = " ")
+
+bigrama_limpios <- bigrama_sep  |> 
+  filter(!str_detect(palabra1, "\\d"),
+         !str_detect(palabra2, "\\d"))  |> 
+  filter(nchar(palabra1) > 2,
+         nchar(palabra2) > 2) |> 
+  filter(!palabra1 %in% stop_es$word,
+         !palabra2 %in% stop_es$word)
+
+#¿Qué rescatamos de los bigramas?
+
+# Buenos Aires
+# Derechos Humanos
+# Política/s pública/s
+# Planta permanente
+# Cristina Orono
+# Salud sexual
+# Ley Micaela
+
+```
+
