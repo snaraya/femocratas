@@ -120,8 +120,6 @@ corp <- quanteda::corpus(docs, text_field = "texto")
 
 # Estandarización
 
-Eliminar stopwords del corpus
-
 ```{r}
 toks <- tokens(corp,
                remove_punct   = TRUE,
@@ -180,6 +178,8 @@ dic_propio <- palabras |>
   pull()
 
 ```
+
+Eliminar stopwords del corpus
 
 ```{r}
 # Remover stopwords
