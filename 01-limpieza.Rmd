@@ -75,7 +75,7 @@ rm(docs_argentina, docs_espana, paths)
 ### Integrar Clasificacion.xlsx
 
 ```{r}
-entrevistas <- readxl::read_xlsx("Clasificacion.xlsx") |> 
+entrevistas <- readxl::read_xlsx("input/Clasificacion.xlsx") |> 
   janitor::clean_names()
 
 colnames(entrevistas)
@@ -165,14 +165,14 @@ revision_palabras_limpia <- revision_palabras_limpia |>
 
 # Revisar luego de guardar
 
-writexl::write_xlsx(revision_palabras_limpia, "palabras.xlsx")
+writexl::write_xlsx(revision_palabras_limpia, "outputs/palabras.xlsx")
 
 rm(revision_palabras, revision_palabras_limpia)
 ```
 
 ```{r}
 
-palabras <- readxl::read_xlsx("diccionario.xlsx")
+palabras <- readxl::read_xlsx("input/diccionario.xlsx")
   
 dic_propio <- palabras |> 
   filter(is.na(eliminar)) |> 
