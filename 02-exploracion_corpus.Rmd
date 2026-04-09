@@ -25,92 +25,8 @@ library(hrbrthemes)
 # Carga de documentos
 
 ```{r}
-# Dirección por país
-paths <- list.files("data_raw/interviews/argentina", pattern = "\\.docx$", full.names = TRUE)
-
-docs <- readtext(paths)
-
-docs <- docs |> 
-  mutate(text = stri_trans_general(text, "latin-ascii"),
-         text = str_remove_all(text, "[[:punct:]]"),
-         text = str_to_lower(text),
-         text = str_squish(text))
-
-head(docs$text, 2)  # muestra del primer texto
-
-docs <- docs |> 
-  mutate(pais = "argentina")
+dfm_docs <- read_rds("outputs/260409-data_dfm.rds")
 ```
-
-Identificador de entrevista sin extensión
-
-```{r}
-docs$doc_id <- tools::file_path_sans_ext(basename(docs$doc_id))
-```
-
-Integrar Clasificacion.xlsx
-
-```{r}
-entrevistas_arg <- readxl::read_xlsx("Clasificacion.xlsx") |> 
-  janitor::clean_names()
-
-colnames(entrevistas_arg)
-
-docs <- docs |> 
-  left_join(entrevistas_arg, by = c("doc_id"="entrevistas"))
-
-colnames(docs)
-```
-
-# Corpus
-
-```{r}
-corp <- quanteda::corpus(docs, text_field = "text")
-```
-
-# Estandarización
-
-Diccionario de stopwords (01-limpieza)
-
-```{r}
-stop_custom_arg <- readxl::read_xlsx("palabras_arg_rev.xlsx")
-
-stop_custom_arg <- stop_custom_arg |> 
-  filter(eliminar == 1) |> 
-  select(word) |> 
-  pull()
-```
-
-Eliminar stopwords del corpus
-
-```{r}
-stop_es <- stopwords::stopwords("es")  # stopwords en español
-
-stop_all <- unique(c(stop_es, stop_custom_arg))
-
-toks <- tokens(corp,
-               remove_punct   = TRUE,
-               remove_numbers = TRUE,
-               remove_symbols = TRUE)
-
-# Remover stopwords
-
-toks <- tokens_remove(toks, stop_all)
-
-# Quitar términos de dos o menos letras
-
-toks <- tokens_keep(toks, pattern = "^[[:alpha:]]{3,}$", valuetype = "regex")
-```
-
-Dejar sólo palabras con un mínimo de 2 repeticiones
-
-```{r}
-dfm_docs <- dfm(toks)
-
-dfm_docs <- dfm_trim(dfm_docs, min_termfreq = 2)  
-```
-
-
 
 # Exploración de base de datos
 
@@ -148,7 +64,7 @@ library(quanteda.textplots)
 
 docvars(dfm_docs)
 
-key <- textstat_keyness(dfm_docs, target = docvars(dfm_docs)$rama_feminista == "Militante")
+key <- textstat_keyness(dfm_docs, target = docvars(dfm_docs)$tipo_de_femocrata == "Estado")
 
 textplot_keyness(key,
                  n = 10,

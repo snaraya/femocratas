@@ -8,8 +8,18 @@ editor_options:
 ---
 
 ```{r}
-library(tidytext)
+# General
 library(tidyverse)
+
+# texto
+library(quanteda)
+library(quanteda.textstats)
+library(tidytext)
+library(readtext)
+library(stringi)
+
+# ggplot
+library(hrbrthemes)
 ```
 
 # Carga de documentos
@@ -18,35 +28,134 @@ library(tidyverse)
 # Dirección por país
 paths <- list.files("data_raw/interviews/argentina", pattern = "\\.docx$", full.names = TRUE)
 
-docs <- readtext(paths)
+docs_argentina <- readtext(paths)
 
-docs <- docs |> 
+docs_argentina <- docs_argentina |> 
   mutate(text = stri_trans_general(text, "latin-ascii"),
          text = str_remove_all(text, "[[:punct:]]"),
          text = str_to_lower(text),
          text = str_squish(text))
 
-head(docs$text, 2)  # muestra del primer texto
+head(docs_argentina$text, 2)  # muestra del primer texto
 
-docs <- docs |> 
-  mutate(pais = "argentina")
+docs_argentina <- docs_argentina |> 
+  mutate(pais = "Argentina")
 ```
 
-# Diccionario de stopwords por país:
+# España
+
+```{r}
+# Dirección por país
+paths <- list.files("data_raw/interviews/españa", pattern = "\\.docx$", full.names = TRUE)
+
+docs_espana <- readtext(paths)
+
+docs_espana <- docs_espana |> 
+  mutate(text = stri_trans_general(text, "latin-ascii"),
+         text = str_remove_all(text, "[[:punct:]]"),
+         text = str_to_lower(text),
+         text = str_squish(text))
+
+head(docs_espana$text, 2)  # muestra del primer texto
+
+docs_espana <- docs_espana |> 
+  mutate(pais = "España")
+```
+
+# Unir en una sola base
+
+```{r}
+docs <- bind_rows(docs_argentina,
+                  docs_espana)
+
+rm(docs_argentina, docs_espana, paths)
+```
+
+
+### Integrar Clasificacion.xlsx
+
+```{r}
+entrevistas <- readxl::read_xlsx("Clasificacion.xlsx") |> 
+  janitor::clean_names()
+
+colnames(entrevistas)
+
+entrevistas <- entrevistas |> 
+  mutate(across(rama_feminista:autonomia_que_expande, ~str_to_title(.)),
+         entrevista_id = paste(entrevistas, pais))
+```
+
+Identificador de entrevista sin extensión
+
+```{r}
+docs$doc_id <- tools::file_path_sans_ext(basename(docs$doc_id))
+```
+
+```{r}
+docs <- docs |> 
+  mutate(doc_id = str_to_title(doc_id),
+         doc_id = paste(doc_id, pais)) |> 
+  select(-pais)
+```
+
+Unir las bases
+
+```{r}
+docs <- docs |> 
+  left_join(entrevistas, by = c("doc_id"="entrevista_id"))
+
+colnames(docs)
+
+docs <- docs |> 
+  mutate(doc_id = paste("Entrevista", 1:n())) |> 
+  select(doc_id, pais, rama_feminista, tipo_de_femocrata, nivel_territorial, 
+         autonomia_que_expande, texto = text)
+```
+
+# Corpus
+
+```{r}
+corp <- quanteda::corpus(docs, text_field = "texto")
+```
+
+# Estandarización
+
+Eliminar stopwords del corpus
+
+```{r}
+toks <- tokens(corp,
+               remove_punct   = TRUE,
+               remove_numbers = TRUE,
+               remove_symbols = TRUE)
+
+# Quitar términos de dos o menos letras
+
+toks <- tokens_keep(toks, pattern = "^[[:alpha:]]{3,}$", valuetype = "regex")
+```
+
+Diccionario propio de palabras para eliminar:
+
+```{r}
+stop_es <- tibble(word = stopwords("es"))
+
+stop_es <- stop_es |>
+  mutate(
+    word = stri_trans_general(word, "latin-ascii"),
+    word = str_remove_all(word, "[[:punct:]]"),
+    word = str_to_lower(word)
+  )
+```
+
 
 ```{r}
 
-# Argentina
-
 revision_palabras <- docs |> 
-  unnest_tokens(word, text)  |> 
+  unnest_tokens(word, texto)  |> 
   count(word)
 
 revision_palabras <- revision_palabras |> 
   filter(!str_detect(word, "\\d")) |> # Eliminar números
-  filter(nchar(word) > 2) # Eliminar palabras 2 o menos letras
-
-stop_es <- tibble(word = stopwords("es"))
+  filter(nchar(word) > 3) # Eliminar palabras 2 o menos letras
 
 revision_palabras_limpia <- revision_palabras  |> 
   anti_join(stop_es, by = "word")
@@ -54,43 +163,53 @@ revision_palabras_limpia <- revision_palabras  |>
 revision_palabras_limpia <- revision_palabras_limpia |> 
   filter(n > 10)
 
-writexl::write_xlsx(revision_palabras_limpia, "palabras_arg.xlsx")
+# Revisar luego de guardar
+
+writexl::write_xlsx(revision_palabras_limpia, "palabras.xlsx")
+
+rm(revision_palabras, revision_palabras_limpia)
 ```
-
-
-# Bigramas
-
-Posibles combinaciones de palabras a tener en consideración para el análisis:
 
 ```{r}
 
-# Argentina
-
-bigrama <- docs  |> 
-  unnest_tokens(bigrama, text, token = "ngrams", n = 2) |> 
-  count(bigrama) |> 
-  filter(n > 20)
-
-bigrama_sep <- bigrama  |> 
-  separate(bigrama, into = c("palabra1", "palabra2"), sep = " ")
-
-bigrama_limpios <- bigrama_sep  |> 
-  filter(!str_detect(palabra1, "\\d"),
-         !str_detect(palabra2, "\\d"))  |> 
-  filter(nchar(palabra1) > 2,
-         nchar(palabra2) > 2) |> 
-  filter(!palabra1 %in% stop_es$word,
-         !palabra2 %in% stop_es$word)
-
-#¿Qué rescatamos de los bigramas?
-
-# Buenos Aires
-# Derechos Humanos
-# Política/s pública/s
-# Planta permanente
-# Cristina Orono
-# Salud sexual
-# Ley Micaela
+palabras <- readxl::read_xlsx("diccionario.xlsx")
+  
+dic_propio <- palabras |> 
+  filter(is.na(eliminar)) |> 
+  select(word) |> 
+  pull()
 
 ```
+
+```{r}
+# Remover stopwords
+
+stop_all <- unique(c(stop_es, dic_propio))
+
+toks <- tokens_remove(toks, stop_all)
+```
+
+
+Dejar sólo palabras con un mínimo de 2 repeticiones
+
+```{r}
+dfm_docs <- dfm(toks)
+
+dfm_docs <- dfm_trim(dfm_docs, min_termfreq = 3)  
+```
+
+
+```{r}
+dfm_grouped <- dfm_group(dfm_docs, groups = tipo_de_femocrata)
+
+topfeatures(dfm_grouped, 50)
+```
+
+
+# Guardamos la base de datos
+
+```{r}
+write_rds(dfm_docs, "outputs/260409-data_dfm.rds")
+```
+
 
