@@ -8,6 +8,10 @@ editor_options:
 ---
 
 ```{r}
+rm(list = ls())
+```
+
+```{r}
 # General
 library(tidyverse)
 
@@ -62,13 +66,35 @@ docs_espana <- docs_espana |>
   mutate(pais = "España")
 ```
 
+# Chile
+
+```{r}
+# Dirección por país
+paths <- list.files("data_raw/interviews/chile", pattern = "\\.docx$", full.names = TRUE)
+
+docs_chile <- readtext(paths)
+
+docs_chile <- docs_chile |> 
+  mutate(text = stri_trans_general(text, "latin-ascii"),
+         text = str_remove_all(text, "[[:punct:]]"),
+         text = str_to_lower(text),
+         text = str_squish(text))
+
+head(docs_chile$text, 2)  # muestra del primer texto
+
+docs_chile <- docs_chile |> 
+  mutate(pais = "Chile")
+
+```
+
 # Unir en una sola base
 
 ```{r}
 docs <- bind_rows(docs_argentina,
-                  docs_espana)
+                  docs_espana,
+                  docs_chile)
 
-rm(docs_argentina, docs_espana, paths)
+rm(docs_argentina, docs_espana, docs_chile, paths)
 ```
 
 
@@ -110,6 +136,8 @@ docs <- docs |>
   mutate(doc_id = paste("Entrevista", 1:n())) |> 
   select(doc_id, pais, rama_feminista, tipo_de_femocrata, nivel_territorial, 
          autonomia_que_expande, texto = text)
+
+rm(entrevistas)
 ```
 
 # Corpus
@@ -128,67 +156,111 @@ toks <- tokens(corp,
 
 # Quitar términos de dos o menos letras
 
-toks <- tokens_keep(toks, pattern = "^[[:alpha:]]{3,}$", valuetype = "regex")
+toks <- tokens_keep(toks, pattern = "^[[:alpha:]]{4,}$", valuetype = "regex")
 ```
 
 Diccionario propio de palabras para eliminar:
 
 ```{r}
-stop_es <- tibble(word = stopwords("es"))
+
+stop_es <- read_table("input/stopwords-es.txt",
+                         col_names = "word")
 
 stop_es <- stop_es |>
   mutate(
     word = stri_trans_general(word, "latin-ascii"),
     word = str_remove_all(word, "[[:punct:]]"),
     word = str_to_lower(word)
-  )
-```
-
-
-```{r}
-
-revision_palabras <- docs |> 
-  unnest_tokens(word, texto)  |> 
-  count(word)
-
-revision_palabras <- revision_palabras |> 
-  filter(!str_detect(word, "\\d")) |> # Eliminar números
-  filter(nchar(word) > 3) # Eliminar palabras 2 o menos letras
-
-revision_palabras_limpia <- revision_palabras  |> 
-  anti_join(stop_es, by = "word")
-
-revision_palabras_limpia <- revision_palabras_limpia |> 
-  filter(n > 10)
-
-# Revisar luego de guardar
-
-writexl::write_xlsx(revision_palabras_limpia, "outputs/palabras.xlsx")
-
-rm(revision_palabras, revision_palabras_limpia)
-```
-
-```{r}
-
-palabras <- readxl::read_xlsx("input/diccionario.xlsx")
-  
-dic_propio <- palabras |> 
-  filter(is.na(eliminar)) |> 
-  select(word) |> 
+  ) |> 
   pull()
 
+toks <- tokens_remove(toks, stop_es, window = c(1, 2))
+
 ```
 
-Eliminar stopwords del corpus
+Diccionario propio de palabras a eliminar (de tokens a data.frame):
 
 ```{r}
-# Remover stopwords
+out <- convert(dfm(toks), to = "data.frame")
 
-stop_all <- unique(c(stop_es, dic_propio))
+palabras <- out |>
+  pivot_longer(cols = c(!doc_id), names_to = "tokens", values_to = "freq") |> 
+  select(-doc_id) |> 
+  group_by(tokens) |> 
+  summarise(freq = sum(freq))
 
-toks <- tokens_remove(toks, stop_all)
+palabras <- palabras |> 
+  filter(!tokens %in% stop_es)
+
+palabras <- palabras |> 
+  filter(freq >= 5)
+
+rm(out)
 ```
 
+Alimentar con diccionario anterior:
+
+```{r}
+diccionario <- readxl::read_xlsx("input/diccionario.xlsx")
+
+diccionario <- select(diccionario, tokens, eliminar) 
+
+dic_revision <- palabras |> 
+  left_join(diccionario) |> 
+  group_by(tokens, freq) |> 
+  slice(1)
+
+writexl::write_xlsx(dic_revision, "outputs/palabras.xlsx")
+
+rm(dic_revision)
+
+```
+
+
+```{r}
+# Cargamos el diccionario actualizado
+diccionario <- readxl::read_xlsx("input/diccionario.xlsx")
+
+dic_propio <- diccionario |> 
+  filter(!is.na(eliminar)) |> 
+  select(tokens) |> 
+  pull()
+```
+
+Eliminar palabras propias
+
+```{r}
+# Remover palabras propias
+
+toks <- tokens_remove(toks, dic_propio)
+```
+
+# Inclusión de bigramas
+
+```{r}
+bigramas_limpios <- readxl::read_xlsx("input/bigramas_rev.xlsx")
+
+bigramas <- bigramas_limpios |> 
+  filter(!is.na(mantener)) |> 
+  mutate(frase = paste(palabra1, palabra2)) |> 
+  select(frase) |> 
+  pull()
+```
+
+```{r}
+toks <- tokens_compound(
+  toks,
+  pattern = phrase(bigramas)
+)
+
+# ¿Perspectiva feminista?
+```
+
+Palabras con raices similares
+
+```{r}
+toks_es <- tokens_wordstem(toks, language = "spanish")
+```
 
 Dejar sólo palabras con un mínimo de 2 repeticiones
 
@@ -198,13 +270,73 @@ dfm_docs <- dfm(toks)
 dfm_docs <- dfm_trim(dfm_docs, min_termfreq = 3)  
 ```
 
+# Revisión a través de ejemplos
+
+Nivel territorial
+
+```{r}
+dfm_grouped <- dfm_group(dfm_docs, groups = nivel_territorial)
+
+topfeatures(dfm_grouped, 50)
+
+df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
+  pivot_longer(!doc_id,
+               names_to = "palabra",
+               values_to = "frecuencia")
+
+df_tidy  |> 
+  group_by(doc_id)  |> 
+  slice_max(frecuencia, n = 20)  |> 
+  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
+  geom_col(show.legend = FALSE) +
+  facet_grid(cols = vars(doc_id), scales = "free") +
+  coord_flip() +
+  theme_ipsum()
+```
+
+Rama feminista
+
+```{r}
+dfm_grouped <- dfm_group(dfm_docs, groups = rama_feminista)
+
+topfeatures(dfm_grouped, 50)
+
+df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
+  pivot_longer(!doc_id,
+               names_to = "palabra",
+               values_to = "frecuencia")
+
+df_tidy  |> 
+  group_by(doc_id)  |> 
+  slice_max(frecuencia, n = 10)  |> 
+  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
+  geom_col(show.legend = FALSE) +
+  facet_grid(cols = vars(doc_id), scales = "free") +
+  coord_flip() +
+  theme_ipsum()
+```
+
+Tipo de femócrata
 
 ```{r}
 dfm_grouped <- dfm_group(dfm_docs, groups = tipo_de_femocrata)
 
 topfeatures(dfm_grouped, 50)
-```
 
+df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
+  pivot_longer(!doc_id,
+               names_to = "palabra",
+               values_to = "frecuencia")
+
+df_tidy  |> 
+  group_by(doc_id)  |> 
+  slice_max(frecuencia, n = 10)  |> 
+  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
+  geom_col(show.legend = FALSE) +
+  facet_grid(cols = vars(doc_id), scales = "free") +
+  coord_flip() +
+  theme_ipsum()
+```
 
 # Guardamos la base de datos
 

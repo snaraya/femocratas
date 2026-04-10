@@ -30,8 +30,8 @@ find_col <- function(target, keywords) {
 
 resumir_grupo <- function(df, group_var){
   stopifnot(group_var %in% names(df))
-  df %>%
-    dplyr::group_by(.data[[group_var]]) %>%
+  df  |> 
+    dplyr::group_by(.data[[group_var]])  |> 
     dplyr::summarise(
       n_docs = dplyr::n(),
       defensa_pct    = round(mean(defensa_bin,    na.rm = TRUE)*100, 1),
