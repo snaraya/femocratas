@@ -35,8 +35,7 @@ paths <- list.files("data_raw/interviews/argentina", pattern = "\\.docx$", full.
 docs_argentina <- readtext(paths)
 
 docs_argentina <- docs_argentina |> 
-  mutate(text = stri_trans_general(text, "latin-ascii"),
-         text = str_remove_all(text, "[[:punct:]]"),
+  mutate(text = str_remove_all(text, "[[:punct:]]"),
          text = str_to_lower(text),
          text = str_squish(text))
 
@@ -55,8 +54,7 @@ paths <- list.files("data_raw/interviews/españa", pattern = "\\.docx$", full.na
 docs_espana <- readtext(paths)
 
 docs_espana <- docs_espana |> 
-  mutate(text = stri_trans_general(text, "latin-ascii"),
-         text = str_remove_all(text, "[[:punct:]]"),
+  mutate(text = str_remove_all(text, "[[:punct:]]"),
          text = str_to_lower(text),
          text = str_squish(text))
 
@@ -75,8 +73,7 @@ paths <- list.files("data_raw/interviews/chile", pattern = "\\.docx$", full.name
 docs_chile <- readtext(paths)
 
 docs_chile <- docs_chile |> 
-  mutate(text = stri_trans_general(text, "latin-ascii"),
-         text = str_remove_all(text, "[[:punct:]]"),
+  mutate(text = str_remove_all(text, "[[:punct:]]"),
          text = str_to_lower(text),
          text = str_squish(text))
 
@@ -140,6 +137,15 @@ docs <- docs |>
 rm(entrevistas)
 ```
 
+Guardar base de datos para script de frases compuestas:
+
+```{r}
+write_rds(
+  docs,
+  paste0("outputs/", format(Sys.Date(), "%y%m%d"), "-docs.rds")
+)
+```
+
 # Corpus
 
 ```{r}
@@ -153,81 +159,92 @@ toks <- tokens(corp,
                remove_punct   = TRUE,
                remove_numbers = TRUE,
                remove_symbols = TRUE)
+```
 
-# Quitar términos de dos o menos letras
 
-toks <- tokens_keep(toks, pattern = "^[[:alpha:]]{4,}$", valuetype = "regex")
+```{r}
+write_rds(
+  toks,
+  paste0("outputs/", format(Sys.Date(), "%y%m%d"), "-toks.rds")
+)
+```
+
+
+# Inclusión de bigramas y trigramas
+
+```{r}
+trigrama_clean <- readxl::read_xlsx("input/260420-trigrama_clean.xlsx")
+
+trigrama <- trigrama_clean |> 
+  filter(!is.na(mantener)) |> 
+  mutate(frase = paste(palabra1, palabra2, palabra3)) |> 
+  select(frase) |> 
+  pull()
+
+bigramas_clean <- readxl::read_xlsx("input/260420-bigramas_clean.xlsx")
+
+bigramas <- bigramas_clean |> 
+  filter(!is.na(mantener)) |> 
+  mutate(frase = paste(palabra1, palabra2)) |> 
+  select(frase) |> 
+  pull()
+
+palabras_compuestas <- c(trigrama, bigramas)
+
+writexl::write_xlsx(as.data.frame(palabras_compuestas), "outputs/palabras_compuestas.xlsx")
+
+rm(bigramas_clean, bigramas, trigrama_clean, trigrama)
+```
+
+
+```{r}
+palabras_compuestas <- readxl::read_xlsx("input/260420-palabras_compuestas.xlsx")
+
+palabras_compuestas <- palabras_compuestas |> pull()
+
+toks <- tokens_compound(
+  toks,
+  pattern = phrase(palabras_compuestas)
+)
 ```
 
 Diccionario propio de palabras para eliminar:
 
 ```{r}
-
 stop_es <- read_table("input/stopwords-es.txt",
                          col_names = "word")
 
 stop_es <- stop_es |>
   mutate(
-    word = stri_trans_general(word, "latin-ascii"),
+    #word = stri_trans_general(word, "Latin-ASCII"),
     word = str_remove_all(word, "[[:punct:]]"),
     word = str_to_lower(word)
   ) |> 
   pull()
 
-toks <- tokens_remove(toks, stop_es, window = c(1, 2))
-
+toks <- tokens_remove(toks, stop_es)
 ```
 
-Diccionario propio de palabras a eliminar (de tokens a data.frame):
+
+Filtrar tokens cortos (permitir guion bajo)
 
 ```{r}
-out <- convert(dfm(toks), to = "data.frame")
-
-palabras <- out |>
-  pivot_longer(cols = c(!doc_id), names_to = "tokens", values_to = "freq") |> 
-  select(-doc_id) |> 
-  group_by(tokens) |> 
-  summarise(freq = sum(freq))
-
-palabras <- palabras |> 
-  filter(!tokens %in% stop_es)
-
-palabras <- palabras |> 
-  filter(freq >= 5)
-
-rm(out)
+toks <- tokens_select(toks, pattern = "^[[:alpha:]_]{3,}$", valuetype = "regex")
 ```
 
-Alimentar con diccionario anterior:
-
-```{r}
-diccionario <- readxl::read_xlsx("input/diccionario.xlsx")
-
-diccionario <- select(diccionario, tokens, eliminar) 
-
-dic_revision <- palabras |> 
-  left_join(diccionario) |> 
-  group_by(tokens, freq) |> 
-  slice(1)
-
-writexl::write_xlsx(dic_revision, "outputs/palabras.xlsx")
-
-rm(dic_revision)
-
-```
 
 
 ```{r}
 # Cargamos el diccionario actualizado
-diccionario <- readxl::read_xlsx("input/diccionario.xlsx")
+diccionario <- readxl::read_xlsx("input/260421-diccionario.xlsx")
 
 dic_propio <- diccionario |> 
-  filter(!is.na(eliminar)) |> 
+  filter(!is.na(eliminar) | !is.na(palabras_paises)) |> 
   select(tokens) |> 
   pull()
 ```
 
-Eliminar palabras propias
+Eliminar palabras del diccionario Fondecyt
 
 ```{r}
 # Remover palabras propias
@@ -235,32 +252,26 @@ Eliminar palabras propias
 toks <- tokens_remove(toks, dic_propio)
 ```
 
-# Inclusión de bigramas
+Eliminamos:
+
+- Palabras que indican tiempo.
+- Adjetivos calificativos.
+- Palabras características de países (políticos)
+
+
+Tokens de reemplazo
 
 ```{r}
-bigramas_limpios <- readxl::read_xlsx("input/bigramas_rev.xlsx")
 
-bigramas <- bigramas_limpios |> 
-  filter(!is.na(mantener)) |> 
-  mutate(frase = paste(palabra1, palabra2)) |> 
-  select(frase) |> 
-  pull()
-```
+df_reemplazos <- readxl::read_xlsx("input/260421-reemplazo.xlsx")
 
-```{r}
-toks <- tokens_compound(
+toks <- tokens_replace(
   toks,
-  pattern = phrase(bigramas)
+  pattern = df_reemplazos$concepto,
+  replacement = df_reemplazos$reemplazo
 )
-
-# ¿Perspectiva feminista?
 ```
 
-Palabras con raices similares
-
-```{r}
-toks_es <- tokens_wordstem(toks, language = "spanish")
-```
 
 Dejar sólo palabras con un mínimo de 2 repeticiones
 
@@ -270,78 +281,12 @@ dfm_docs <- dfm(toks)
 dfm_docs <- dfm_trim(dfm_docs, min_termfreq = 3)  
 ```
 
-# Revisión a través de ejemplos
-
-Nivel territorial
-
-```{r}
-dfm_grouped <- dfm_group(dfm_docs, groups = nivel_territorial)
-
-topfeatures(dfm_grouped, 50)
-
-df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
-  pivot_longer(!doc_id,
-               names_to = "palabra",
-               values_to = "frecuencia")
-
-df_tidy  |> 
-  group_by(doc_id)  |> 
-  slice_max(frecuencia, n = 20)  |> 
-  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
-  geom_col(show.legend = FALSE) +
-  facet_grid(cols = vars(doc_id), scales = "free") +
-  coord_flip() +
-  theme_ipsum()
-```
-
-Rama feminista
-
-```{r}
-dfm_grouped <- dfm_group(dfm_docs, groups = rama_feminista)
-
-topfeatures(dfm_grouped, 50)
-
-df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
-  pivot_longer(!doc_id,
-               names_to = "palabra",
-               values_to = "frecuencia")
-
-df_tidy  |> 
-  group_by(doc_id)  |> 
-  slice_max(frecuencia, n = 10)  |> 
-  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
-  geom_col(show.legend = FALSE) +
-  facet_grid(cols = vars(doc_id), scales = "free") +
-  coord_flip() +
-  theme_ipsum()
-```
-
-Tipo de femócrata
-
-```{r}
-dfm_grouped <- dfm_group(dfm_docs, groups = tipo_de_femocrata)
-
-topfeatures(dfm_grouped, 50)
-
-df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
-  pivot_longer(!doc_id,
-               names_to = "palabra",
-               values_to = "frecuencia")
-
-df_tidy  |> 
-  group_by(doc_id)  |> 
-  slice_max(frecuencia, n = 10)  |> 
-  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
-  geom_col(show.legend = FALSE) +
-  facet_grid(cols = vars(doc_id), scales = "free") +
-  coord_flip() +
-  theme_ipsum()
-```
-
 # Guardamos la base de datos
 
 ```{r}
-write_rds(dfm_docs, "outputs/260409-data_dfm.rds")
+write_rds(
+  dfm_docs,
+  paste0("outputs/", format(Sys.Date(), "%y%m%d"), "-data_dfm.rds")
+)
 ```
-
 

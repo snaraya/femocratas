@@ -1,0 +1,53 @@
+---
+title: "Revisión de palabras"
+author: "Soledad Araya"
+date: "2026-04-22"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+rm(list = ls())
+```
+
+```{r}
+# General
+library(tidyverse)
+
+# texto
+library(quanteda)
+library(quanteda.textstats)
+library(tidytext)
+library(readtext)
+library(stringi)
+
+# ggplot
+library(hrbrthemes)
+```
+
+Cargar base para revisar:
+
+```{r}
+toks <- read_rds("outputs/260422-toks.rds")
+```
+
+Ver palabras que antes y después de una palabra clave:
+
+* Caso/casos
+* Cuidados
+* Política/políticas
+* Área
+* Mujer/mujeres
+
+```{r}
+kw <- kwic(toks, pattern = "área", window = 3)
+
+# Separar contexto
+df_kw <- as.data.frame(kw)
+```
+
+
+
+
+

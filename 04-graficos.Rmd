@@ -1,0 +1,138 @@
+---
+title: "Gráficos"
+author: "Soledad Araya"
+date: "2026-04-22"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+rm(list = ls())
+```
+
+```{r}
+# General
+library(tidyverse)
+
+# texto
+library(quanteda)
+library(quanteda.textstats)
+library(tidytext)
+library(readtext)
+library(stringi)
+
+# ggplot
+library(hrbrthemes)
+```
+
+Carga de base de datos 
+
+```{r}
+dfm_docs <- read_rds("outputs/260422-data_dfm.rds")
+```
+
+Para combinaciones:
+
+```{r}
+dfm_grouped <- dfm_group(
+  dfm_docs,
+  groups = interaction(docvars(dfm_docs)$pais,
+                       docvars(dfm_docs)$nivel_territorial)
+)
+
+topfeatures(dfm_grouped, 50)
+
+df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
+  pivot_longer(!doc_id,
+               names_to = "palabra",
+               values_to = "frecuencia")
+
+df_tidy  |> 
+  group_by(doc_id)  |> 
+  slice_max(frecuencia, n = 10)  |> 
+  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
+  geom_col(show.legend = FALSE) +
+  facet_grid(cols = vars(doc_id), scales = "free") +
+  coord_flip() +
+  theme_ipsum()
+```
+
+Rama feminista
+
+```{r}
+dfm_grouped <- dfm_group(dfm_docs, groups = rama_feminista)
+
+topfeatures(dfm_grouped, 50)
+
+df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
+  pivot_longer(!doc_id,
+               names_to = "palabra",
+               values_to = "frecuencia")
+
+df_tidy  |> 
+  group_by(doc_id)  |> 
+  slice_max(frecuencia, n = 10)  |> 
+  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
+  geom_col(show.legend = FALSE) +
+  facet_grid(cols = vars(doc_id), scales = "free") +
+  coord_flip() +
+  theme_ipsum()
+```
+
+Tipo de femócrata
+
+```{r}
+dfm_grouped <- dfm_group(dfm_docs, groups = tipo_de_femocrata)
+
+topfeatures(dfm_grouped, 50)
+
+df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
+  pivot_longer(!doc_id,
+               names_to = "palabra",
+               values_to = "frecuencia")
+
+df_tidy  |> 
+  group_by(doc_id)  |> 
+  slice_max(frecuencia, n = 10)  |> 
+  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
+  geom_col(show.legend = FALSE) +
+  facet_grid(cols = vars(doc_id), scales = "free") +
+  coord_flip() +
+  theme_ipsum()
+```
+
+País
+
+```{r}
+
+dfm_grouped <- dfm_group(dfm_docs, groups = pais)
+
+topfeatures(dfm_grouped, 50)
+
+df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
+  pivot_longer(!doc_id,
+               names_to = "palabra",
+               values_to = "frecuencia")
+
+df_tidy |> 
+  group_by(doc_id) |> 
+  slice_max(frecuencia, n = 20)
+
+df_tidy  |> 
+  group_by(doc_id)  |> 
+  slice_max(frecuencia, n = 10)  |> 
+  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
+  geom_col(show.legend = FALSE) +
+  facet_grid(cols = vars(doc_id), scales = "free") +
+  coord_flip() +
+  theme_ipsum()
+```
+
+# Guardamos la base de datos
+
+```{r}
+write_rds(dfm_docs, "outputs/260410-data_dfm.rds")
+```
+
+

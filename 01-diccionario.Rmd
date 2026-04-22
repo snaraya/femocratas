@@ -1,0 +1,45 @@
+---
+title: "01-diccionario"
+author: "Soledad Araya"
+date: "2026-04-22"
+output: html_document
+---
+
+Diccionario propio de palabras a eliminar (de tokens a data.frame):
+
+```{r}
+out <- convert(dfm(toks), to = "data.frame")
+
+palabras <- out |>
+  pivot_longer(cols = c(!doc_id), names_to = "tokens", values_to = "freq") |> 
+  select(-doc_id) |> 
+  group_by(tokens) |> 
+  summarise(freq = sum(freq))
+
+palabras <- palabras |> 
+  filter(!tokens %in% stop_es)
+
+palabras <- palabras |> 
+  filter(freq >= 5)
+
+rm(out)
+```
+
+Alimentar con diccionario anterior:
+
+```{r}
+diccionario <- readxl::read_xlsx("input/diccionario.xlsx")
+
+diccionario <- select(diccionario, tokens, eliminar) 
+
+dic_revision <- palabras |> 
+  left_join(diccionario) |> 
+  group_by(tokens, freq) |> 
+  slice(1)
+
+writexl::write_xlsx(dic_revision, "outputs/260421-palabras.xlsx")
+
+rm(dic_revision)
+
+# Quería revisar mujeres/genero
+```

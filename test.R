@@ -69,3 +69,12 @@ toks_comp <- tokens_compound(
   pattern = phrase(bigramas)
 )
 ```
+
+
+
+
+```{r}
+# Quitar términos de dos o menos letras
+
+toks <- tokens_keep(toks, pattern = "^[[:alpha:]]{2,}$", valuetype = "regex") # Siglas de partidos
+```

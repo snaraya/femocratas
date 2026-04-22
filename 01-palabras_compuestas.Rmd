@@ -1,0 +1,159 @@
+---
+title: "Estudio de palabras"
+author: "Soledad Araya"
+date: "2026-04-19"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+rm(list = ls())
+```
+
+```{r}
+# General
+library(tidyverse)
+
+# texto
+library(quanteda)
+library(quanteda.textstats)
+library(tidytext)
+library(readtext)
+library(stringi)
+
+# ggplot
+library(hrbrthemes)
+```
+
+Carga de base de datos
+
+```{r}
+docs <- read_rds("outputs/260419-docs.rds")
+```
+
+Combinación de palabras más repetidas:
+
+```{r}
+stop_es <- read_table("input/stopwords-es.txt",
+                         col_names = "word")
+
+stop_es <- stop_es |>
+  mutate(
+    word = str_remove_all(word, "[[:punct:]]"),
+    word = str_to_lower(word)
+  ) |> 
+  pull()
+```
+
+
+
+```{r}
+df_bigramas <- docs  |> 
+  unnest_tokens(bigrama, texto, token = "ngrams", n = 2) |> 
+  count(bigrama) |> 
+  filter(n > 5) |> 
+  arrange(n)
+```
+
+
+```{r}
+df_bigramas_sep_word <- df_bigramas  |> 
+  separate(bigrama, into = c("palabra1", "palabra2"), sep = " ")
+
+# Base bigramas limpia
+
+df_bigramas_clean <- df_bigramas_sep_word  |> 
+  filter(!str_detect(palabra1, "\\d"),
+         !str_detect(palabra2, "\\d"))  |> 
+  filter(nchar(palabra1) > 2,
+         nchar(palabra2) > 2) |> 
+  filter(!palabra1 %in% stop_es$word,
+         !palabra2 %in% stop_es$word)
+```
+
+Guardar
+
+```{r}
+writexl::write_xlsx(df_bigramas_clean, "outputs/bigramas_clean.xlsx")
+```
+
+Trigramas
+
+
+```{r}
+df_trigrama <- docs  |> 
+  unnest_tokens(trigrama, texto, token = "ngrams", n = 3) |> 
+  count(trigrama) |> 
+  filter(n > 5) |> 
+  arrange(n)
+```
+
+```{r}
+df_trigrama_sep_word <- df_trigrama  |> 
+  separate(trigrama, into = c("palabra1", "palabra2", "palabra3"), sep = " ")
+
+# Base bigramas limpia
+
+df_trigrama_clean <- df_trigrama_sep_word  |> 
+  filter(!str_detect(palabra1, "\\d"),
+         !str_detect(palabra2, "\\d"))
+```
+
+Guardar
+
+```{r}
+writexl::write_xlsx(df_trigrama_clean, "outputs/trigrama_clean.xlsx")
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+df_toks <- read_rds("260419-toks.rds")
+```
+
+
+Ver palabras que antes y después de una palabra clave:
+
+* Género
+
+```{r}
+kw <- kwic(df_toks, pattern = "derechos_sexuales", window = 2)
+
+# Separar contexto
+contextos <- as.data.frame(kw)
+```
+
+```{r}
+# Palabras antes
+antes <- contextos |> 
+  separate_rows(pre, sep = " ") |> 
+  count(pre, sort = TRUE)
+
+# Palabras después
+despues <- contextos |> 
+  separate_rows(post, sep = " ") |> 
+  count(post, sort = TRUE)
+```
+
+
+Combinación de palabras
+
+* Mujer
+
+```{r}
+
+```
+
+* Género
+
+
+

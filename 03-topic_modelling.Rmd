@@ -7,6 +7,10 @@ editor_options:
   chunk_output_type: console
 ---
 
+```{r}
+rm(list = ls())
+```
+
 Paquetes
 
 ```{r}
@@ -31,7 +35,7 @@ library(topicmodels)
 # Carga de documentos
 
 ```{r}
-dfm_docs <- read_rds("outputs/data_dfm.rds")
+dfm_docs <- read_rds("outputs/260422-data_dfm.rds")
 ```
 
 
@@ -103,7 +107,7 @@ Evaluamos los modelos:
 ```{r}
 model <- stm(documents = dfm_stm$documents,
          vocab = dfm_stm$vocab, 
-         K = 3,
+         K = 5,
          verbose = TRUE)
 
 plot(model)
@@ -122,9 +126,9 @@ labels <- labelTopics(model, n = 20)
 ```{r}
 topwords <- data.frame("features" = t(labels$frex))
 
-colnames(topwords) <- paste("topics", c(1:3))
+colnames(topwords) <- paste("topics", c(1:5))
 
-topwords[1:3]
+topwords[1:5]
 ```
 
 
