@@ -32,7 +32,6 @@ Carga de base de datos
 dfm_docs <- read_rds("outputs/260422-data_dfm.rds")
 ```
 
-Para combinaciones:
 
 ```{r}
 dfm_grouped <- dfm_group(
@@ -47,92 +46,358 @@ df_tidy <- convert(dfm_grouped, to = "data.frame") |>
   pivot_longer(!doc_id,
                names_to = "palabra",
                values_to = "frecuencia")
-
-df_tidy  |> 
-  group_by(doc_id)  |> 
-  slice_max(frecuencia, n = 10)  |> 
-  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
-  geom_col(show.legend = FALSE) +
-  facet_grid(cols = vars(doc_id), scales = "free") +
-  coord_flip() +
-  theme_ipsum()
 ```
 
-Rama feminista
+# Dumbell
+
+## Argentina
 
 ```{r}
-dfm_grouped <- dfm_group(dfm_docs, groups = rama_feminista)
+df_wide_argentina <- df_tidy |> 
+  mutate(
+    pais = str_split(doc_id, "\\.", simplify = TRUE)[,1],
+  ) |>
+  filter(pais == "Argentina") |> 
+  pivot_wider(names_from = doc_id, values_from = frecuencia) |> 
+  rowwise() |> 
+  janitor::clean_names() |> 
+  mutate(diferencia = argentina_nacional - argentina_provincial) |> 
+  ungroup() |> 
+  slice_max(order_by = diferencia, n = 20)
 
-topfeatures(dfm_grouped, 50)
+df_wide_argentina |> 
+  filter(palabra == "programa")
 
-df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
-  pivot_longer(!doc_id,
-               names_to = "palabra",
-               values_to = "frecuencia")
-
-df_tidy  |> 
-  group_by(doc_id)  |> 
-  slice_max(frecuencia, n = 10)  |> 
-  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
-  geom_col(show.legend = FALSE) +
-  facet_grid(cols = vars(doc_id), scales = "free") +
-  coord_flip() +
-  theme_ipsum()
+df_wide_argentina |> 
+  mutate(palabra = str_to_upper(gsub("_", " ", palabra))) |> 
+  pivot_longer(
+    cols = c(argentina_nacional, argentina_provincial),
+    names_to = "grupo",
+    values_to = "frecuencia"
+  ) |> 
+  mutate(
+    grupo = recode(grupo,
+      argentina_nacional = "Nacional",
+      argentina_provincial = "Provincial"
+    )
+  ) |> 
+  ggplot(aes(x = frecuencia, y = palabra, color = grupo)) +
+  geom_line(aes(group = palabra), color = "#e3e2e1", linewidth = 1) +
+  geom_point(size = 3) +
+  scale_color_manual(
+    values = c(
+      "Nacional" = "#5b8124",
+      "Provincial" = "#bad744"
+    ),
+    name = "Nivel territorial"
+  ) +
+  labs(
+    title = "Diferencias léxicas entre femócratas de acuerdo a nivel territorial.",
+    subtitle = "Cada línea conecta la diferencia de términos entre nivel nacional y provincial en Argentina.",
+    x = "Frecuencia",
+    y = NULL
+  ) +
+  theme_minimal(base_family = "Roboto") +
+  theme(panel.grid.major.x = element_line(linewidth = 0.01))
 ```
 
-Tipo de femócrata
+## España
 
 ```{r}
-dfm_grouped <- dfm_group(dfm_docs, groups = tipo_de_femocrata)
+df_wide_españa <- df_tidy |> 
+  mutate(
+    pais = str_split(doc_id, "\\.", simplify = TRUE)[,1],
+  ) |>
+  filter(pais == "España") |> 
+  pivot_wider(names_from = doc_id, values_from = frecuencia) |> 
+  rowwise() |> 
+  janitor::clean_names() |> 
+  mutate(diferencia = espana_nacional - espana_provincial) |> 
+  ungroup() |> 
+  slice_max(order_by = diferencia, n = 20)
 
-topfeatures(dfm_grouped, 50)
+df_wide_españa |> 
+  filter(palabra == "programa")
 
-df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
-  pivot_longer(!doc_id,
-               names_to = "palabra",
-               values_to = "frecuencia")
-
-df_tidy  |> 
-  group_by(doc_id)  |> 
-  slice_max(frecuencia, n = 10)  |> 
-  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
-  geom_col(show.legend = FALSE) +
-  facet_grid(cols = vars(doc_id), scales = "free") +
-  coord_flip() +
-  theme_ipsum()
+df_wide_españa |> 
+  mutate(palabra = str_to_upper(gsub("_", " ", palabra))) |> 
+  pivot_longer(
+    cols = c(espana_nacional, espana_provincial),
+    names_to = "grupo",
+    values_to = "frecuencia"
+  ) |> 
+  mutate(
+    grupo = recode(grupo,
+      espana_nacional = "Nacional",
+      espana_provincial = "Provincial"
+    )
+  ) |> 
+  ggplot(aes(x = frecuencia, y = palabra, color = grupo)) +
+  geom_line(aes(group = palabra), color = "#e3e2e1", linewidth = 1) +
+  geom_point(size = 3) +
+  scale_color_manual(
+    values = c(
+      "Nacional" = "#5b8124",
+      "Provincial" = "#bad744"
+    ),
+    name = "Nivel territorial"
+  ) +
+  labs(
+    title = "Diferencias léxicas entre femócratas de acuerdo a nivel territorial.",
+    subtitle = "Cada línea conecta la diferencia de términos entre nivel nacional y provincial en España.",
+    x = "Frecuencia",
+    y = NULL
+  ) +
+  theme_minimal(base_family = "Roboto") +
+  theme(panel.grid.major.x = element_line(linewidth = 0.01))
 ```
 
-País
+# Heatmap
+
+## Nivel territorial
 
 ```{r}
-
-dfm_grouped <- dfm_group(dfm_docs, groups = pais)
-
-topfeatures(dfm_grouped, 50)
-
-df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
-  pivot_longer(!doc_id,
-               names_to = "palabra",
-               values_to = "frecuencia")
-
-df_tidy |> 
+df_heatmap <- df_tidy  |> 
   group_by(doc_id) |> 
-  slice_max(frecuencia, n = 20)
+  mutate(prop = frecuencia / sum(frecuencia)) |> 
+  ungroup()
 
-df_tidy  |> 
-  group_by(doc_id)  |> 
-  slice_max(frecuencia, n = 10)  |> 
-  ggplot(aes(x = reorder(palabra, frecuencia), y = frecuencia, fill = doc_id)) +
-  geom_col(show.legend = FALSE) +
-  facet_grid(cols = vars(doc_id), scales = "free") +
-  coord_flip() +
-  theme_ipsum()
+top_words <- df_heatmap  |> 
+  group_by(palabra) |> 
+  summarise(total = sum(prop)) |> 
+  slice_max(total, n = 20) |> 
+  pull(palabra)
+
+gg_heatmap <- df_heatmap  |> 
+  group_by(palabra) |> 
+  mutate(media = mean(prop)) |> 
+  ungroup() |> 
+  mutate(log_ratio = log(prop / media))
+
+gg_heatmap  |> 
+  filter(palabra %in% top_words) |> 
+  mutate(
+    palabra = str_to_title(gsub("_", " ", palabra)),
+    palabra = reorder(palabra, log_ratio),
+    doc_id = case_match(doc_id,
+                        "Argentina.Nacional" ~ "Argentina\n(Nacional)",
+                        "Argentina.Provincial" ~ "Argentina\n(Provincial)",
+                        "España.Nacional" ~ "España\n(Nacional)",
+                        "España.Provincial" ~ "España\n(Provincial)")
+  )  |> 
+  ggplot(aes(x = doc_id, y = palabra, fill = log_ratio)) +
+  geom_tile(color = "white", linewidth = 0.3) +
+  scale_fill_gradient2(
+    low = "#e63946", # Palabra menos característica de este grupo
+    mid = "#f1faee", # Promedio
+    high = "#1d3557", # Palabra más característica de ese grupo
+    midpoint = 0,
+    name = "Representación\n"
+  ) +
+  labs(
+    title = "Diferenciación léxica por femócratas a nivel país y territorial",
+    subtitle = "Términos más característicos según sobre-representación relativa",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_minimal(base_size = 12, base_family = "Roboto") +
+  theme(
+    panel.grid = element_blank(),    
+    plot.title = element_text(face = "bold")
+  )
 ```
 
-# Guardamos la base de datos
+
+## Tipo de femócrata
 
 ```{r}
-write_rds(dfm_docs, "outputs/260410-data_dfm.rds")
+dfm_grouped <- dfm_group(
+  dfm_docs,
+  groups = interaction(docvars(dfm_docs)$pais,
+                       docvars(dfm_docs)$tipo_de_femocrata)
+)
+
+df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
+  pivot_longer(!doc_id,
+               names_to = "palabra",
+               values_to = "frecuencia")
 ```
+
+
+```{r}
+
+df_heatmap <- df_tidy  |> 
+  group_by(doc_id) |> 
+  mutate(prop = frecuencia / sum(frecuencia)) |> 
+  ungroup()
+
+top_words <- df_heatmap  |> 
+  group_by(palabra) |> 
+  summarise(total = sum(prop)) |> 
+  slice_max(total, n = 20) |> 
+  pull(palabra)
+
+gg_heatmap <- df_heatmap  |> 
+  group_by(palabra) |> 
+  mutate(media = mean(prop)) |> 
+  ungroup() |> 
+  mutate(log_ratio = log(prop / media))
+
+gg_heatmap  |> 
+  filter(palabra %in% top_words) |> 
+  mutate(
+    palabra = str_to_title(gsub("_", " ", palabra)),
+    palabra = reorder(palabra, log_ratio),
+    # doc_id = case_match(doc_id,
+    #                     "Argentina.Nacional" ~ "Argentina\n(Nacional)",
+    #                     "Argentina.Provincial" ~ "Argentina\n(Provincial)",
+    #                     "España.Nacional" ~ "España\n(Nacional)",
+    #                     "España.Provincial" ~ "España\n(Provincial)"),
+    pais = str_split(doc_id, "\\.", simplify = TRUE)[,1],
+    tipo_femocrata = str_split(doc_id, "\\.", simplify = TRUE)[,2]
+  )  |> 
+  ggplot(aes(x = tipo_femocrata, y = palabra, fill = log_ratio)) +
+  geom_tile(color = "white", linewidth = 0.3) +
+  scale_fill_gradient2(
+    low = "#e63946", # Palabra menos característica de este grupo
+    mid = "#f1faee", # Promedio
+    high = "#1d3557", # Palabra más característica de ese grupo
+    midpoint = 0,
+    name = "Representación\n"
+  ) +
+  labs(
+    title = "Diferenciación léxica por tipo de femócrata",
+    subtitle = "Términos más característicos según sobre-representación relativa",
+    x = NULL,
+    y = NULL
+  ) +
+  facet_wrap(~pais) +
+  theme_minimal(base_size = 12, base_family = "Roboto") +
+  theme(
+    panel.grid = element_blank(),    
+    plot.title = element_text(face = "bold")
+  )
+```
+
+
+
+En el caso de hacer los otros grupos, es necesario elegir un nivel de referencia para hacerlo.
+
+# Dumbell con chi2
+
+```{r}
+target <- docvars(dfm_docs)$pais == "Argentina" & 
+          docvars(dfm_docs)$nivel_territorial == "Nacional"
+
+key <- textstat_keyness(dfm_docs, target = target)
+
+key_plot <- key |>
+  mutate(
+    palabra = str_to_upper(gsub("_", " ", feature)),
+    grupo = ifelse(chi2 > 0, "Nacional", "Provincial")
+  ) |>
+  group_by(grupo) |>
+  slice_max(abs(chi2), n = 10, with_ties = FALSE) |>
+  ungroup()
+
+
+key_plot |>
+  ggplot(aes(y = reorder(palabra, chi2))) +
+  geom_segment(
+    aes(x = 0, xend = chi2, yend = palabra),
+    color = "#e3e2e1",
+    linewidth = 1
+  ) +
+  geom_point(
+    aes(x = chi2, color = grupo),
+    size = 3
+  ) +
+  scale_color_manual(
+    values = c(
+      "Nacional" = "#1d3557",
+      "Provincial" = "#e63946"
+    ),
+    name = "Nivel territorial"
+  ) +
+  labs(
+    title = "Diferenciación léxica entre niveles territoriales en Argentina",
+    subtitle = "Términos distintivos según keyness (log-likelihood)",
+    x = "Keyness (chi²)",
+    y = NULL
+  ) +
+  theme_minimal(base_family = "Roboto") +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.grid.major.x = element_line(linewidth = 0.2),
+    plot.title = element_text(face = "bold")
+  )
+
+```
+
+# Heatmap con chi2
+
+```{r}
+docvars(dfm_docs, "grupo") <- paste(
+  docvars(dfm_docs)$pais,
+  docvars(dfm_docs)$nivel_territorial,
+  sep = "_"
+)
+
+grupos <- unique(docvars(dfm_docs)$grupo)
+
+key_list <- lapply(grupos, function(g) {
+  target <- docvars(dfm_docs)$grupo == g
+  
+  textstat_keyness(dfm_docs, target = target) |>
+    mutate(grupo = g)
+})
+
+key_all <- bind_rows(key_list)
+
+top_words <- key_all |>
+  group_by(feature) |>
+  summarise(max_chi2 = max(abs(chi2))) |>
+  slice_max(max_chi2, n = 20, with_ties = FALSE) |>
+  pull(feature)
+
+df_plot <- key_all |>
+  filter(feature %in% top_words) |>
+  mutate(
+    feature = str_to_title(gsub("_", " ", feature)),
+    grupo = case_match(grupo,
+                        "Argentina_Nacional" ~ "Argentina\n(Nacional)",
+                        "Argentina_Provincial" ~ "Argentina\n(Provincial)",
+                        "España_Nacional" ~ "España\n(Nacional)",
+                        "España_Provincial" ~ "España\n(Provincial)",
+                       "Chile_NA" ~ "Chile")
+  )
+
+ggplot(df_plot, aes(x = grupo, y = reorder(feature, chi2), fill = chi2)) +
+  geom_tile(color = "white", linewidth = 0.3) +
+  scale_fill_gradient2(
+    low = "#e63946", # Palabra menos característica de este grupo
+    mid = "#f1faee", # Promedio
+    high = "#1d3557", # Palabra más característica de ese grupo
+    midpoint = 0,
+    name = "Keyness (chi²)"
+  ) +
+  labs(
+    title = "Diferenciación léxica por país y nivel territorial",
+    subtitle = "Términos más característicos según keyness (chi²)",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_minimal(base_family = "Roboto") +
+  theme(
+    panel.grid = element_blank(),
+    plot.title = element_text(face = "bold")
+  )
+
+```
+
+
+
+
+
 
 

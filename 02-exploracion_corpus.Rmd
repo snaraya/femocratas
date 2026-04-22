@@ -79,7 +79,6 @@ docvars(dfm_docs)
 key <- textstat_keyness(dfm_filtrado, target = docvars(dfm_filtrado)$rama_feminista == "Militante")
 
 
-
 key |> 
   mutate(feature = str_to_upper(gsub("_", " ", feature)),
          grupo = ifelse(chi2 > 0, "Militante", "Referencia"))  |> 
@@ -127,6 +126,19 @@ key |>
   ) +
   theme_minimal(base_family = "Roboto") +
   theme(plot.title = element_text(hjust = 0.5))
+
+
+key  |> 
+  mutate(feature = str_to_upper(gsub("_", " ", feature)),
+         grupo = ifelse(chi2 > 0, "Militante", "Referencia")) |> 
+  group_by(grupo)  |> 
+  slice_max(frecuencia, n = 10, with_ties = FALSE)  |> 
+  ungroup()  |> 
+  ggplot(aes(x = doc_id, y = reorder(palabra, frecuencia), fill = frecuencia)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(x = NULL, y = NULL, fill = "Frecuencia") +
+  theme_minimal()
 
 ```
 
