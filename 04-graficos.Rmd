@@ -26,10 +26,15 @@ library(stringi)
 library(hrbrthemes)
 ```
 
+```{r}
+source("99-funciones.R")
+```
+
+
 Carga de base de datos 
 
 ```{r}
-dfm_docs <- read_rds("outputs/260422-data_dfm.rds")
+dfm_docs <- read_rds("outputs/260423-data_dfm.rds")
 ```
 
 
@@ -286,15 +291,18 @@ En el caso de hacer los otros grupos, es necesario elegir un nivel de referencia
 # Dumbell con chi2
 
 ```{r}
-target <- docvars(dfm_docs)$pais == "Argentina" & 
-          docvars(dfm_docs)$nivel_territorial == "Nacional"
+
+docvars(dfm_docs)
+
+target <- docvars(dfm_docs)$pais == "Chile" & 
+          docvars(dfm_docs)$autonomia_que_expande == "Física"
 
 key <- textstat_keyness(dfm_docs, target = target)
 
 key_plot <- key |>
   mutate(
     palabra = str_to_upper(gsub("_", " ", feature)),
-    grupo = ifelse(chi2 > 0, "Nacional", "Provincial")
+    grupo = ifelse(chi2 > 0, "Física", "Otro")
   ) |>
   group_by(grupo) |>
   slice_max(abs(chi2), n = 10, with_ties = FALSE) |>
@@ -314,13 +322,13 @@ key_plot |>
   ) +
   scale_color_manual(
     values = c(
-      "Nacional" = "#1d3557",
-      "Provincial" = "#e63946"
+      "Física" = "#1d3557",
+      "Otro" = "#e63946"
     ),
-    name = "Nivel territorial"
+    name = "Autonomía"
   ) +
   labs(
-    title = "Diferenciación léxica entre niveles territoriales en Argentina",
+    title = "Diferenciación léxica entre niveles territoriales en Chile",
     subtitle = "Términos distintivos según keyness (log-likelihood)",
     x = "Keyness (chi²)",
     y = NULL
@@ -334,70 +342,55 @@ key_plot |>
 
 ```
 
+
+
 # Heatmap con chi2
 
+Revisar las variables de análisis:
+
 ```{r}
-docvars(dfm_docs, "grupo") <- paste(
-  docvars(dfm_docs)$pais,
-  docvars(dfm_docs)$nivel_territorial,
-  sep = "_"
-)
-
-grupos <- unique(docvars(dfm_docs)$grupo)
-
-key_list <- lapply(grupos, function(g) {
-  target <- docvars(dfm_docs)$grupo == g
-  
-  textstat_keyness(dfm_docs, target = target) |>
-    mutate(grupo = g)
-})
-
-key_all <- bind_rows(key_list)
-
-top_words <- key_all |>
-  group_by(feature) |>
-  summarise(max_chi2 = max(abs(chi2))) |>
-  slice_max(max_chi2, n = 20, with_ties = FALSE) |>
-  pull(feature)
-
-df_plot <- key_all |>
-  filter(feature %in% top_words) |>
-  mutate(
-    feature = str_to_title(gsub("_", " ", feature)),
-    grupo = case_match(grupo,
-                        "Argentina_Nacional" ~ "Argentina\n(Nacional)",
-                        "Argentina_Provincial" ~ "Argentina\n(Provincial)",
-                        "España_Nacional" ~ "España\n(Nacional)",
-                        "España_Provincial" ~ "España\n(Provincial)",
-                       "Chile_NA" ~ "Chile")
-  )
-
-ggplot(df_plot, aes(x = grupo, y = reorder(feature, chi2), fill = chi2)) +
-  geom_tile(color = "white", linewidth = 0.3) +
-  scale_fill_gradient2(
-    low = "#e63946", # Palabra menos característica de este grupo
-    mid = "#f1faee", # Promedio
-    high = "#1d3557", # Palabra más característica de ese grupo
-    midpoint = 0,
-    name = "Keyness (chi²)"
-  ) +
-  labs(
-    title = "Diferenciación léxica por país y nivel territorial",
-    subtitle = "Términos más característicos según keyness (chi²)",
-    x = NULL,
-    y = NULL
-  ) +
-  theme_minimal(base_family = "Roboto") +
-  theme(
-    panel.grid = element_blank(),
-    plot.title = element_text(face = "bold")
-  )
-
+docvars(dfm_docs)
 ```
 
 
+## Nivel territorial
+
+```{r}
+plot_keyness_heatmap(dfm_docs,
+                     "nivel_territorial",
+                     n_top = 15,
+                     titulo = "Nivel territorial",
+                     subtitulo = "Subtitulo")
+```
 
 
+## Tipo de femócrata
 
+```{r}
+plot_keyness_heatmap(dfm_docs,
+                     "tipo_de_femocrata",
+                     n_top = 15,
+                     titulo = "Nivel territorial",
+                     subtitulo = "Subtitulo")
+```
 
+## Rama feminista
+
+```{r}
+plot_keyness_heatmap(dfm_docs,
+                     "rama_feminista",
+                     n_top = 15,
+                     titulo = "Nivel territorial",
+                     subtitulo = "Subtitulo")
+```
+
+## Autonomía 
+
+```{r}
+plot_keyness_heatmap(dfm_docs,
+                     "autonomia_que_expande",
+                     n_top = 15,
+                     titulo = "Nivel territorial",
+                     subtitulo = "Subtitulo")
+```
 

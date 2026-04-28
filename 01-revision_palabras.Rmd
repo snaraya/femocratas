@@ -34,19 +34,18 @@ toks <- read_rds("outputs/260422-toks.rds")
 
 Ver palabras que antes y después de una palabra clave:
 
-* Caso/casos
-* Cuidados
-* Política/políticas
-* Área
-* Mujer/mujeres
+* Vida (158 menciones)
+
 
 ```{r}
-kw <- kwic(toks, pattern = "área", window = 3)
+kw <- kwic(toks, pattern = "área", window = 2)
 
 # Separar contexto
 df_kw <- as.data.frame(kw)
 ```
 
+* Romper: romper modelo, romper lógica (patriarcal), romper pactos, romper segregación.
+* Área
 
 
 

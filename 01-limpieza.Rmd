@@ -81,7 +81,6 @@ head(docs_chile$text, 2)  # muestra del primer texto
 
 docs_chile <- docs_chile |> 
   mutate(pais = "Chile")
-
 ```
 
 # Unir en una sola base
@@ -95,11 +94,12 @@ rm(docs_argentina, docs_espana, docs_chile, paths)
 ```
 
 
-### Integrar Clasificacion.xlsx
+### Integrar Clasificacion_copia.xlsx (categorías subrepresentadas)
 
 ```{r}
-entrevistas <- readxl::read_xlsx("input/Clasificacion.xlsx") |> 
-  janitor::clean_names()
+entrevistas <- readxl::read_xlsx("input/Clasificacion_copia.xlsx") |> 
+  janitor::clean_names() |> 
+  select(-numero)
 
 colnames(entrevistas)
 
@@ -191,7 +191,7 @@ bigramas <- bigramas_clean |>
 
 palabras_compuestas <- c(trigrama, bigramas)
 
-writexl::write_xlsx(as.data.frame(palabras_compuestas), "outputs/palabras_compuestas.xlsx")
+#writexl::write_xlsx(as.data.frame(palabras_compuestas), "outputs/palabras_compuestas.xlsx")
 
 rm(bigramas_clean, bigramas, trigrama_clean, trigrama)
 ```
@@ -236,7 +236,7 @@ toks <- tokens_select(toks, pattern = "^[[:alpha:]_]{3,}$", valuetype = "regex")
 
 ```{r}
 # Cargamos el diccionario actualizado
-diccionario <- readxl::read_xlsx("input/260421-diccionario.xlsx")
+diccionario <- readxl::read_xlsx("input/260427-diccionario.xlsx")
 
 dic_propio <- diccionario |> 
   filter(!is.na(eliminar) | !is.na(palabras_paises)) |> 
@@ -263,7 +263,7 @@ Tokens de reemplazo
 
 ```{r}
 
-df_reemplazos <- readxl::read_xlsx("input/260421-reemplazo.xlsx")
+df_reemplazos <- readxl::read_xlsx("input/260421-reemplazo.xlsx") # Actualizado el 27 de abril
 
 toks <- tokens_replace(
   toks,

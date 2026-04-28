@@ -1,0 +1,54 @@
+---
+title: "Tablas"
+author: "Soledad Araya"
+date: "2026-04-23"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+rm(list = ls())
+```
+
+```{r}
+# General
+library(tidyverse)
+
+# texto
+library(quanteda)
+library(quanteda.textstats)
+library(tidytext)
+library(readtext)
+library(stringi)
+
+# ggplot
+library(summarytools)
+```
+
+# Tablas descriptivas
+
+
+```{r}
+entrevistas <- readxl::read_xlsx("input/Clasificacion_copia.xlsx") |> 
+  janitor::clean_names() |> 
+  select(-numero)
+
+entrevistas <- entrevistas |> 
+  mutate(across(rama_feminista:autonomia_que_expande, ~str_to_sentence(.)))
+```
+
+# Tablas de frecuencia
+
+```{r}
+colnames(entrevistas)
+
+tabla_rama_feminista <- tabla_frecuencias(entrevistas, var = rama_feminista)
+
+tabla_tipo_femocrata <- tabla_frecuencias(entrevistas, var = tipo_de_femocrata)
+
+tabla_nivel_terrirotial <- tabla_frecuencias(entrevistas, var = nivel_territorial)
+
+tabla_autonomia <- tabla_frecuencias(entrevistas, var = autonomia_que_expande)
+```
+

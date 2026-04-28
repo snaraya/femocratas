@@ -29,7 +29,7 @@ library(hrbrthemes)
 Carga de base de datos
 
 ```{r}
-docs <- read_rds("outputs/260419-docs.rds")
+docs <- read_rds("outputs/260425-docs.rds")
 ```
 
 Combinación de palabras más repetidas:
@@ -68,8 +68,8 @@ df_bigramas_clean <- df_bigramas_sep_word  |>
          !str_detect(palabra2, "\\d"))  |> 
   filter(nchar(palabra1) > 2,
          nchar(palabra2) > 2) |> 
-  filter(!palabra1 %in% stop_es$word,
-         !palabra2 %in% stop_es$word)
+  filter(!palabra1 %in% stop_es,
+         !palabra2 %in% stop_es)
 ```
 
 Guardar
@@ -106,54 +106,28 @@ Guardar
 writexl::write_xlsx(df_trigrama_clean, "outputs/trigrama_clean.xlsx")
 ```
 
-
-
-
-
-
-
-
-
-
+# Revisión 4 palabras
 
 ```{r}
-df_toks <- read_rds("260419-toks.rds")
-```
-
-
-Ver palabras que antes y después de una palabra clave:
-
-* Género
-
-```{r}
-kw <- kwic(df_toks, pattern = "derechos_sexuales", window = 2)
-
-# Separar contexto
-contextos <- as.data.frame(kw)
+df_cuatro <- docs  |> 
+  unnest_tokens(cuatro, texto, token = "ngrams", n = 4) |> 
+  count(cuatro) |> 
+  filter(n > 5) |> 
+  arrange(n)
 ```
 
 ```{r}
-# Palabras antes
-antes <- contextos |> 
-  separate_rows(pre, sep = " ") |> 
-  count(pre, sort = TRUE)
+df_cuatro_sep_word <- df_cuatro  |> 
+  separate(cuatro, into = c("palabra1", "palabra2", "palabra3", "palabra4"), sep = " ")
 
-# Palabras después
-despues <- contextos |> 
-  separate_rows(post, sep = " ") |> 
-  count(post, sort = TRUE)
+# Base bigramas limpia
+
+df_cuatro_clean <- df_cuatro_sep_word  |> 
+  filter(!str_detect(palabra1, "\\d"),
+         !str_detect(palabra2, "\\d"),
+         !str_detect(palabra3, "\\d"),
+         !str_detect(palabra4, "\\d"))
 ```
-
-
-Combinación de palabras
-
-* Mujer
-
-```{r}
-
-```
-
-* Género
 
 
 

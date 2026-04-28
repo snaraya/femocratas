@@ -3,6 +3,8 @@ title: "01-diccionario"
 author: "Soledad Araya"
 date: "2026-04-22"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 Diccionario propio de palabras a eliminar (de tokens a data.frame):
@@ -28,16 +30,14 @@ rm(out)
 Alimentar con diccionario anterior:
 
 ```{r}
-diccionario <- readxl::read_xlsx("input/diccionario.xlsx")
+diccionario <- readxl::read_xlsx("input/260421-diccionario.xlsx")
 
-diccionario <- select(diccionario, tokens, eliminar) 
+diccionario <- select(diccionario, tokens, eliminar, palabras_paises) 
 
 dic_revision <- palabras |> 
-  left_join(diccionario) |> 
-  group_by(tokens, freq) |> 
-  slice(1)
+  left_join(diccionario)
 
-writexl::write_xlsx(dic_revision, "outputs/260421-palabras.xlsx")
+writexl::write_xlsx(dic_revision, "outputs/260427-palabras.xlsx")
 
 rm(dic_revision)
 
