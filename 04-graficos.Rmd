@@ -66,7 +66,7 @@ df_wide_argentina <- df_tidy |>
   pivot_wider(names_from = doc_id, values_from = frecuencia) |> 
   rowwise() |> 
   janitor::clean_names() |> 
-  mutate(diferencia = argentina_nacional - argentina_provincial) |> 
+  mutate(diferencia = argentina_nacional - argentina_subnacional) |> 
   ungroup() |> 
   slice_max(order_by = diferencia, n = 20)
 
@@ -117,7 +117,7 @@ df_wide_españa <- df_tidy |>
   pivot_wider(names_from = doc_id, values_from = frecuencia) |> 
   rowwise() |> 
   janitor::clean_names() |> 
-  mutate(diferencia = espana_nacional - espana_provincial) |> 
+  mutate(diferencia = espana_nacional - espana_subnacional) |> 
   ungroup() |> 
   slice_max(order_by = diferencia, n = 20)
 
