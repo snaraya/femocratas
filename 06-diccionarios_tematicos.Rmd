@@ -32,6 +32,9 @@ Cargar base de datos
 df_diccionarios_tematicos <- readxl::read_xlsx("input/260427-diccionario.xlsx")
 ```
 
+```{r}
+toks <- read_rds("outputs/260429-toks.rds")
+```
 
 
 ```{r}
@@ -72,28 +75,37 @@ docvars(dfm_dic)
 dfm_prop <- dfm_weight(dfm_dic, scheme = "prop")
 ```
  
+
+# Marcos discursivos
+
+### Nivel territorial
+
 ```{r}
-df_plot <- dfm_dic |>
+df_plot_nivel <- dfm_dic |>
   convert(to = "data.frame") |>
-  bind_cols(docvars(corp)) |>
+  bind_cols(docvars(toks)) |>
   group_by(pais, nivel_territorial) |>
   summarise(across(defensa:brechas, mean, na.rm = TRUE)) |>
   pivot_longer(defensa:brechas,
                names_to = "dimension",
                values_to = "valor")
+
+df_plot_nivel |> 
+  print(n = 20)
 ```
 
 ```{r}
-ggplot(df_plot, aes(x = pais, y = valor, fill = dimension)) +
+ggplot(df_plot_nivel, aes(x = pais, y = valor, fill = dimension)) +
   geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor, 1)),
-            position = position_dodge(width = 1), vjust = -1,
+  geom_text(aes(label = round(valor)),
+            position = position_dodge(width = 1), vjust = -1, hjust = 0.5,
             size = 3) +
   facet_wrap(~nivel_territorial) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
+                    labels = c("Discurso antigénero", "Brechas de género", "Defensa de derechos")) +
   scale_y_continuous(limits = c(0,100),) +
   labs(
-    title = "Intensidad de marcos discursivos por país y nivel territorial",
+    title = NULL,
     x = "País",
     y = "Frecuencia promedio (proporcional)",
     fill = "Dimensión"
@@ -101,33 +113,38 @@ ggplot(df_plot, aes(x = pais, y = valor, fill = dimension)) +
   theme_minimal(base_family = "Roboto")
 ```
 
-
 ```{r}
-ggplot(df_plot, aes(x = dimension, y = pais, fill = valor)) +
+df_plot_nivel |>
+  mutate(
+    dimension = case_match(
+      dimension,
+      "defensa" ~ "Defensa de\nderechos",
+      "antigenero" ~ "Discurso\nantigénero",
+      "brechas" ~ "Brechas de\ngénero"
+    )
+  ) |>
+  ggplot(aes(x = dimension, y = pais, fill = valor)) +
   geom_tile() +
-  facet_wrap(~nivel_territorial) +
-    scale_fill_gradient2(
-    low = "#e63946", # Palabra menos característica de este grupo
-    mid = "#f1faee", # Promedio
-    high = "#1d3557", # Palabra más característica de ese grupo
+  facet_wrap( ~ nivel_territorial) +
+  scale_fill_gradient2(
+    low = "#ecf39e",
+    # Palabra menos característica de este grupo
+    mid = "#4f772d",
+    # Promedio
+    high = "#132a13",
+    # Palabra más característica de ese grupo
     midpoint = 10,
     name = "Representación\n"
   ) +
-  labs(
-    title = "Mapa de intensidad discursiva",
-    x = "Dimensión",
-    y = "País",
-    fill = "Intensidad"
-  ) +
+  labs(title = NULL,
+       x = "Dimensión",
+       y = "País",
+       fill = "Intensidad") +
   theme_minimal(base_family = "Roboto")
 ```
 
+### Rama feminista
 
-
-### marcos discursivos por rama feminista
-
-
- 
 ```{r}
 df_plot_disc_rama <- dfm_dic |>
   convert(to = "data.frame") |>
@@ -142,11 +159,12 @@ df_plot_disc_rama <- dfm_dic |>
 ```{r}
 ggplot(df_plot_disc_rama, aes(x = pais, y = valor, fill = dimension)) +
   geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor, 1)),
+  geom_text(aes(label = round(valor, )),
             position = position_dodge(width = 1), vjust = -1,
             size = 3) +
   facet_wrap(~rama_feminista) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
+                    labels = c("Discurso antigénero", "Brechas de género", "Defensa de derechos")) +
   scale_y_continuous(limits = c(0,100),) +
   labs(
     title = "Intensidad de marcos discursivos por país y nivel territorial",
@@ -159,29 +177,39 @@ ggplot(df_plot_disc_rama, aes(x = pais, y = valor, fill = dimension)) +
 
 
 ```{r}
-ggplot(df_plot_disc_rama, aes(x = dimension, y = pais, fill = valor)) +
+df_plot_disc_rama |>
+  mutate(
+    dimension = case_match(
+      dimension,
+      "defensa" ~ "Defensa de\nderechos",
+      "antigenero" ~ "Discurso\nantigénero",
+      "brechas" ~ "Brechas de\ngénero"
+    )
+  ) |>
+  ggplot(aes(x = dimension, y = pais, fill = valor)) +
   geom_tile() +
-  facet_wrap(~rama_feminista) +
-    scale_fill_gradient2(
-    low = "#e63946", # Palabra menos característica de este grupo
-    mid = "#f1faee", # Promedio
-    high = "#1d3557", # Palabra más característica de ese grupo
+  facet_wrap( ~ rama_feminista) +
+  scale_fill_gradient2(
+    low = "#ecf39e",
+    # Palabra menos característica de este grupo
+    mid = "#4f772d",
+    # Promedio
+    high = "#132a13",
+    # Palabra más característica de ese grupo
     midpoint = 10,
     name = "Representación\n"
   ) +
-  labs(
-    title = "Mapa de intensidad discursiva",
-    x = "Dimensión",
-    y = "País",
-    fill = "Intensidad"
-  ) +
+  labs(title = NULL,
+       x = "Dimensión",
+       y = "País",
+       fill = "Intensidad") +
   theme_minimal(base_family = "Roboto")
 ```
 
 
 
 
-### marcos discursivos por tipo de femocrata
+### Tipo de femocrata
 
 
  
@@ -199,11 +227,12 @@ df_plot_disc_fem <- dfm_dic |>
 ```{r}
 ggplot(df_plot_disc_fem, aes(x = pais, y = valor, fill = dimension)) +
   geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor, 1)),
+  geom_text(aes(label = round(valor)),
             position = position_dodge(width = 1), vjust = -1,
             size = 3) +
   facet_wrap(~tipo_de_femocrata) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
+                    labels = c("Discurso antigénero", "Brechas de género", "Defensa de derechos")) +
   scale_y_continuous(limits = c(0,100),) +
   labs(
     title = "Intensidad de marcos discursivos por país y nivel territorial",
@@ -216,29 +245,39 @@ ggplot(df_plot_disc_fem, aes(x = pais, y = valor, fill = dimension)) +
 
 
 ```{r}
-ggplot(df_plot_disc_fem, aes(x = dimension, y = pais, fill = valor)) +
+df_plot_disc_fem |>
+  mutate(
+    dimension = case_match(
+      dimension,
+      "defensa" ~ "Defensa de\nderechos",
+      "antigenero" ~ "Discurso\nantigénero",
+      "brechas" ~ "Brechas de\ngénero"
+    )
+  ) |>
+  ggplot(aes(x = dimension, y = pais, fill = valor)) +
   geom_tile() +
-  facet_wrap(~tipo_de_femocrata) +
-    scale_fill_gradient2(
-    low = "#e63946", # Palabra menos característica de este grupo
-    mid = "#f1faee", # Promedio
-    high = "#1d3557", # Palabra más característica de ese grupo
+  facet_wrap( ~ tipo_de_femocrata) +
+  scale_fill_gradient2(
+    low = "#ecf39e",
+    # Palabra menos característica de este grupo
+    mid = "#4f772d",
+    # Promedio
+    high = "#132a13",
+    # Palabra más característica de ese grupo
     midpoint = 10,
     name = "Representación\n"
   ) +
-  labs(
-    title = "Mapa de intensidad discursiva",
-    x = "Dimensión",
-    y = "País",
-    fill = "Intensidad"
-  ) +
+  labs(title = NULL,
+       x = "Dimensión",
+       y = "País",
+       fill = "Intensidad") +
   theme_minimal(base_family = "Roboto")
 ```
 
 
 
 
-### marcos discursivos por autonomía que expande
+### Autonomía que expande
 
 
  
@@ -256,14 +295,15 @@ df_plot_disc_aut <- dfm_dic |>
 ```{r}
 ggplot(df_plot_disc_aut, aes(x = pais, y = valor, fill = dimension)) +
   geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor, 1)),
+  geom_text(aes(label = round(valor)),
             position = position_dodge(width = 1), vjust = -1,
             size = 3) +
   facet_wrap(~autonomia_que_expande) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
+                    labels = c("Discurso antigénero", "Brechas de género", "Defensa de derechos")) +
   scale_y_continuous(limits = c(0,100),) +
   labs(
-    title = "Intensidad de marcos discursivos por país y nivel territorial",
+    title = NULL,
     x = "País",
     y = "Frecuencia promedio (proporcional)",
     fill = "Dimensión"
@@ -273,22 +313,32 @@ ggplot(df_plot_disc_aut, aes(x = pais, y = valor, fill = dimension)) +
 
 
 ```{r}
-ggplot(df_plot_disc_aut, aes(x = dimension, y = pais, fill = valor)) +
+df_plot_disc_aut |>
+  mutate(
+    dimension = case_match(
+      dimension,
+      "defensa" ~ "Defensa de\nderechos",
+      "antigenero" ~ "Discurso\nantigénero",
+      "brechas" ~ "Brechas de\ngénero"
+    )
+  ) |>
+  ggplot(aes(x = dimension, y = pais, fill = valor)) +
   geom_tile() +
-  facet_wrap(~autonomia_que_expande) +
-    scale_fill_gradient2(
-    low = "#e63946", # Palabra menos característica de este grupo
-    mid = "#f1faee", # Promedio
-    high = "#1d3557", # Palabra más característica de ese grupo
+  facet_wrap( ~ autonomia_que_expande) +
+  scale_fill_gradient2(
+    low = "#ecf39e",
+    # Palabra menos característica de este grupo
+    mid = "#4f772d",
+    # Promedio
+    high = "#132a13",
+    # Palabra más característica de ese grupo
     midpoint = 10,
     name = "Representación\n"
   ) +
-  labs(
-    title = "Mapa de intensidad discursiva",
-    x = "Dimensión",
-    y = "País",
-    fill = "Intensidad"
-  ) +
+  labs(title = NULL,
+       x = "Dimensión",
+       y = "País",
+       fill = "Intensidad") +
   theme_minimal(base_family = "Roboto")
 ```
 
@@ -339,7 +389,7 @@ dfm_prop_vinc <- dfm_weight(dfm_dic_vinculos, scheme = "prop")
 ```
 
 
-### vinculos por nivel territorial
+### Nivel territorial
 
 
 ```{r}
@@ -357,14 +407,15 @@ df_plot_vinc <- dfm_dic_vinculos |>
 ```{r}
 ggplot(df_plot_vinc, aes(x = pais, y = valor, fill = dimension)) +
   geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor, 1)),
+  geom_text(aes(label = round(valor)),
             position = position_dodge(width = 1), vjust = -1,
             size = 3) +
   facet_wrap(~nivel_territorial) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
+                    labels = c("Movimiento feminista", "ONG", "Partidos políticos")) +
   scale_y_continuous(limits = c(0,100),) +
   labs(
-    title = "Intensidad de mención de relaciones con agrupaciones nuevas por país y nivel territorial",
+    title = NULL,
     x = "País",
     y = "Frecuencia promedio (proporcional)",
     fill = "Dimensión"
@@ -375,29 +426,58 @@ ggplot(df_plot_vinc, aes(x = pais, y = valor, fill = dimension)) +
 
 
 ```{r}
-ggplot(df_plot_vinc, aes(x = dimension, y = pais, fill = valor)) +
+df_plot_vinc |>
+  mutate(
+    dimension = case_match(
+      dimension,
+      "ong" ~ "ONG",
+      "mov_feminista" ~ "Movimiento\nfeminista",
+      "partidos" ~ "Partidos\npolíticos"
+    )
+  ) |>
+  ggplot(aes(x = dimension, y = pais, fill = valor)) +
   geom_tile() +
-  facet_wrap(~nivel_territorial) +
-    scale_fill_gradient2(
-    low = "#e63946", # Palabra menos característica de este grupo
-    mid = "#f1faee", # Promedio
-    high = "#1d3557", # Palabra más característica de ese grupo
+  facet_wrap( ~ nivel_territorial) +
+  scale_fill_gradient2(
+    low = "#ecf39e",
+    # Palabra menos característica de este grupo
+    mid = "#4f772d",
+    # Promedio
+    high = "#132a13",
+    # Palabra más característica de ese grupo
     midpoint = 10,
     name = "Representación\n"
   ) +
-  labs(
-    title = "Mapa de intensidad discursiva",
-    x = "Dimensión",
-    y = "País",
-    fill = "Intensidad"
-  ) +
+  labs(title = NULL,
+       x = "Dimensión",
+       y = "País",
+       fill = "Intensidad") +
   theme_minimal(base_family = "Roboto")
+```
+
+Modelo
+
+```{r}
+df_doc <- dfm_dic_vinculos |>
+  convert(to = "data.frame") |>
+  bind_cols(docvars(corp))
+
+lm_mov <- lm(mov_feminista ~ pais * nivel_territorial, data = df_doc)
+
+summary(lm_mov)
+
+lm_ong <- lm(ong ~ pais * nivel_territorial, data = df_doc)
+
+summary(lm_ong)
+
+lm_partidos <- lm(partidos ~ pais * nivel_territorial, data = df_doc)
+
+summary(lm_partidos)
 ```
 
 
 
-
-### Vinculo por rama feminista
+### Rama feminista
 
 
 ```{r}
@@ -415,14 +495,15 @@ df_plot_vinc_rama <- dfm_dic_vinculos |>
 ```{r}
 ggplot(df_plot_vinc_rama, aes(x = pais, y = valor, fill = dimension)) +
   geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor, 1)),
+  geom_text(aes(label = round(valor)),
             position = position_dodge(width = 1), vjust = -1,
             size = 3) +
   facet_wrap(~rama_feminista) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
+                    labels = c("Movimiento feminista", "ONG", "Partidos políticos")) +
   scale_y_continuous(limits = c(0,100),) +
   labs(
-    title = "Intensidad de mención de relaciones con agrupaciones nuevas por país y rama feminista",
+    title = NULL,
     x = "País",
     y = "Frecuencia promedio (proporcional)",
     fill = "Dimensión"
@@ -433,29 +514,39 @@ ggplot(df_plot_vinc_rama, aes(x = pais, y = valor, fill = dimension)) +
 
 
 ```{r}
-ggplot(df_plot_vinc_rama, aes(x = dimension, y = pais, fill = valor)) +
+df_plot_vinc_rama |>
+  mutate(
+    dimension = case_match(
+      dimension,
+      "ong" ~ "ONG",
+      "mov_feminista" ~ "Movimiento\nfeminista",
+      "partidos" ~ "Partidos\npolíticos"
+    )
+  ) |>
+  ggplot(aes(x = dimension, y = pais, fill = valor)) +
   geom_tile() +
-  facet_wrap(~rama_feminista) +
-    scale_fill_gradient2(
-    low = "#e63946", # Palabra menos característica de este grupo
-    mid = "#f1faee", # Promedio
-    high = "#1d3557", # Palabra más característica de ese grupo
+  facet_wrap( ~ rama_feminista) +
+  scale_fill_gradient2(
+    low = "#ecf39e",
+    # Palabra menos característica de este grupo
+    mid = "#4f772d",
+    # Promedio
+    high = "#132a13",
+    # Palabra más característica de ese grupo
     midpoint = 10,
     name = "Representación\n"
   ) +
-  labs(
-    title = "Mapa de intensidad discursiva",
-    x = "Dimensión",
-    y = "País",
-    fill = "Intensidad"
-  ) +
+  labs(title = NULL,
+       x = "Dimensión",
+       y = "País",
+       fill = "Intensidad") +
   theme_minimal(base_family = "Roboto")
 ```
 
 
 
 
-### Vinculo por tipo de femocrata
+### Tipo de femocrata
 
 
 
@@ -474,14 +565,15 @@ df_plot_vinc_tipo <- dfm_dic_vinculos |>
 ```{r}
 ggplot(df_plot_vinc_tipo, aes(x = pais, y = valor, fill = dimension)) +
   geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor, 1)),
+  geom_text(aes(label = round(valor)),
             position = position_dodge(width = 1), vjust = -1,
             size = 3) +
   facet_wrap(~tipo_de_femocrata) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
+                    labels = c("Movimiento feminista", "ONG", "Partidos políticos")) +
   scale_y_continuous(limits = c(0,100),) +
   labs(
-    title = "Intensidad de mención de relaciones con agrupaciones nuevas por país y nivel territorial",
+    title = NULL,
     x = "País",
     y = "Frecuencia promedio (proporcional)",
     fill = "Dimensión"
@@ -491,32 +583,39 @@ ggplot(df_plot_vinc_tipo, aes(x = pais, y = valor, fill = dimension)) +
 
 
 
-
 ```{r}
-ggplot(df_plot_vinc_tipo, aes(x = dimension, y = pais, fill = valor)) +
+df_plot_vinc_tipo |>
+  mutate(
+    dimension = case_match(
+      dimension,
+      "ong" ~ "ONG",
+      "mov_feminista" ~ "Movimiento\nfeminista",
+      "partidos" ~ "Partidos\npolíticos"
+    )
+  ) |>
+  ggplot(aes(x = dimension, y = pais, fill = valor)) +
   geom_tile() +
-  facet_wrap(~tipo_de_femocrata) +
-    scale_fill_gradient2(
-    low = "#e63946", # Palabra menos característica de este grupo
-    mid = "#f1faee", # Promedio
-    high = "#1d3557", # Palabra más característica de ese grupo
+  facet_wrap( ~ tipo_de_femocrata) +
+  scale_fill_gradient2(
+    low = "#ecf39e",
+    # Palabra menos característica de este grupo
+    mid = "#4f772d",
+    # Promedio
+    high = "#132a13",
+    # Palabra más característica de ese grupo
     midpoint = 10,
     name = "Representación\n"
   ) +
-  labs(
-    title = "Mapa de intensidad discursiva",
-    x = "Dimensión",
-    y = "País",
-    fill = "Intensidad"
-  ) +
+  labs(title = NULL,
+       x = "Dimensión",
+       y = "País",
+       fill = "Intensidad") +
   theme_minimal(base_family = "Roboto")
+
 ```
 
 
-
-
-
-### Vinculo por autonomía que expande
+### Autonomía que expande
 
 
 ```{r}
@@ -534,14 +633,15 @@ df_plot_vinc_autonomia <- dfm_dic_vinculos |>
 ```{r}
 ggplot(df_plot_vinc_autonomia, aes(x = pais, y = valor, fill = dimension)) +
   geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor, 1)),
+  geom_text(aes(label = round(valor)),
             position = position_dodge(width = 1), vjust = -1,
             size = 3) +
   facet_wrap(~autonomia_que_expande) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
+                    labels = c("Movimiento feminista", "ONG", "Partidos políticos")) +
   scale_y_continuous(limits = c(0,100),) +
   labs(
-    title = "Intensidad de mención de relaciones con agrupaciones nuevas por país y nivel territorial",
+    title = NULL,
     x = "País",
     y = "Frecuencia promedio (proporcional)",
     fill = "Dimensión"
@@ -553,22 +653,32 @@ ggplot(df_plot_vinc_autonomia, aes(x = pais, y = valor, fill = dimension)) +
 
 
 ```{r}
-ggplot(df_plot_vinc_autonomia, aes(x = dimension, y = pais, fill = valor)) +
+df_plot_vinc_autonomia |>
+  mutate(
+    dimension = case_match(
+      dimension,
+      "ong" ~ "ONG",
+      "mov_feminista" ~ "Movimiento\nfeminista",
+      "partidos" ~ "Partidos\npolíticos"
+    )
+  ) |>
+  ggplot(aes(x = dimension, y = pais, fill = valor)) +
   geom_tile() +
-  facet_wrap(~autonomia_que_expande) +
-    scale_fill_gradient2(
-    low = "#e63946", # Palabra menos característica de este grupo
-    mid = "#f1faee", # Promedio
-    high = "#1d3557", # Palabra más característica de ese grupo
+  facet_wrap( ~ autonomia_que_expande) +
+  scale_fill_gradient2(
+    low = "#ecf39e",
+    # Palabra menos característica de este grupo
+    mid = "#4f772d",
+    # Promedio
+    high = "#132a13",
+    # Palabra más característica de ese grupo
     midpoint = 10,
     name = "Representación\n"
   ) +
-  labs(
-    title = "Mapa de intensidad discursiva",
-    x = "Dimensión",
-    y = "País",
-    fill = "Intensidad"
-  ) +
+  labs(title = NULL,
+       x = "Dimensión",
+       y = "País",
+       fill = "Intensidad") +
   theme_minimal(base_family = "Roboto")
 ```
 

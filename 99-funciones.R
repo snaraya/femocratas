@@ -219,3 +219,20 @@ tabla_frecuencias <- function(data, var, carpeta = "outputs") {
   
   return(tabla_final)
 }
+
+
+guardar_fig <- function(plot, nombre_archivo, carpeta = "figs",
+                        width_px = 750, height_px = 450, dpi = 300) {
+  
+  ruta <- file.path(carpeta, nombre_archivo)
+  
+  ggplot2::ggsave(
+    filename = ruta,
+    plot = last_plot(),
+    width = width_px / dpi,
+    height = height_px / dpi,
+    units = "in",
+    dpi = dpi
+  )
+  
+}
