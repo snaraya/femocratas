@@ -128,27 +128,61 @@ key |>
   theme(plot.title = element_text(hjust = 0.5))
 
 
-key  |> 
-  mutate(feature = str_to_upper(gsub("_", " ", feature)),
-         grupo = ifelse(chi2 > 0, "Militante", "Referencia")) |> 
-  group_by(grupo)  |> 
-  slice_max(frecuencia, n = 10, with_ties = FALSE)  |> 
-  ungroup()  |> 
-  ggplot(aes(x = doc_id, y = reorder(palabra, frecuencia), fill = frecuencia)) +
-  geom_tile() +
-  scale_fill_gradient(low = "white", high = "steelblue") +
-  labs(x = NULL, y = NULL, fill = "Frecuencia") +
-  theme_minimal()
+#key  |> 
+  #mutate(feature = str_to_upper(gsub("_", " ", feature)),
+         #grupo = ifelse(chi2 > 0, "Militante", "Referencia")) |> 
+  #group_by(grupo)  |> 
+  #slice_max(frecuencia, n = 10, with_ties = FALSE)  |> 
+  #ungroup()  |> 
+  #ggplot(aes(x = doc_id, y = reorder(palabra, frecuencia), fill = frecuencia)) +
+  #geom_tile() +
+  #scale_fill_gradient(low = "white", high = "steelblue") +
+  #labs(x = NULL, y = NULL, fill = "Frecuencia") +
+  #theme_minimal()
 
 ```
+
+
+CHILE
+
+```{r}
+dfm_filtrado <- dfm_subset(dfm_docs, !is.na(rama_feminista) & pais == "Chile")
+
+key <- textstat_keyness(
+  dfm_filtrado, 
+  target = docvars(dfm_filtrado)$rama_feminista == "Militante"
+)
+
+key |> 
+  mutate(
+    feature = str_to_upper(gsub("_", " ", feature)),
+    grupo = ifelse(chi2 > 0, "Militante", "Referencia")
+  ) |> 
+  group_by(grupo) |> 
+  slice_max(order_by = abs(chi2), n = 10, with_ties = FALSE) |> 
+  ungroup() |> 
+  filter(!is.na(grupo)) |> 
+  ggplot(aes(x = chi2, y = reorder(feature, chi2), fill = grupo)) +
+  geom_col() +
+  scale_fill_manual(values = c("#669bbc", "#c1121f")) +
+  labs(
+    title = "CHILE",
+    x = "Keyness (log-likelihood)",
+    y = NULL,
+    fill = "Grupo"
+  ) +
+  theme_minimal(base_family = "Roboto") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
 
 
 
 # Revisión temática de acuerdo a diccionario
 
 ```{r}
-dfm_dict  <- quanteda::dfm_lookup(dfm_docs, dictionary = dict_fem)
+#dfm_dict  <- quanteda::dfm_lookup(dfm_docs, dictionary = dict_fem)
 
-doc_theme <- quanteda::convert(dfm_dict, to = "data.frame")
+#doc_theme <- quanteda::convert(dfm_dict, to = "data.frame")
 ```
 
