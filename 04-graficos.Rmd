@@ -76,14 +76,14 @@ df_wide_argentina |>
 df_wide_argentina |> 
   mutate(palabra = str_to_upper(gsub("_", " ", palabra))) |> 
   pivot_longer(
-    cols = c(argentina_nacional, argentina_provincial),
+    cols = c(argentina_nacional, argentina_subnacional),
     names_to = "grupo",
     values_to = "frecuencia"
   ) |> 
   mutate(
     grupo = recode(grupo,
       argentina_nacional = "Nacional",
-      argentina_provincial = "Provincial"
+      argentina_subnacional = "Provincial"
     )
   ) |> 
   ggplot(aes(x = frecuencia, y = palabra, color = grupo)) +
@@ -127,14 +127,14 @@ df_wide_españa |>
 df_wide_españa |> 
   mutate(palabra = str_to_upper(gsub("_", " ", palabra))) |> 
   pivot_longer(
-    cols = c(espana_nacional, espana_provincial),
+    cols = c(espana_nacional, espana_subnacional),
     names_to = "grupo",
     values_to = "frecuencia"
   ) |> 
   mutate(
     grupo = recode(grupo,
       espana_nacional = "Nacional",
-      espana_provincial = "Provincial"
+      espana_subnacional = "Provincial"
     )
   ) |> 
   ggplot(aes(x = frecuencia, y = palabra, color = grupo)) +
@@ -186,9 +186,9 @@ gg_heatmap  |>
     palabra = reorder(palabra, log_ratio),
     doc_id = case_match(doc_id,
                         "Argentina.Nacional" ~ "Argentina\n(Nacional)",
-                        "Argentina.Provincial" ~ "Argentina\n(Provincial)",
+                        "Argentina.Subnacional" ~ "Argentina\n(Subnacional)",
                         "España.Nacional" ~ "España\n(Nacional)",
-                        "España.Provincial" ~ "España\n(Provincial)")
+                        "España.Subnacional" ~ "España\n(Subnacional)")
   )  |> 
   ggplot(aes(x = doc_id, y = palabra, fill = log_ratio)) +
   geom_tile(color = "white", linewidth = 0.3) +

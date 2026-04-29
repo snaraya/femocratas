@@ -71,7 +71,7 @@ docvars(dfm_dic)
 ```{r}
 dfm_prop <- dfm_weight(dfm_dic, scheme = "prop")
 ```
-
+ 
 ```{r}
 df_plot <- dfm_dic |>
   convert(to = "data.frame") |>
@@ -121,4 +121,296 @@ ggplot(df_plot, aes(x = dimension, y = pais, fill = valor)) +
   ) +
   theme_minimal(base_family = "Roboto")
 ```
+
+
+
+### marcos discursivos por rama feminista
+
+
+ 
+```{r}
+df_plot_disc_rama <- dfm_dic |>
+  convert(to = "data.frame") |>
+  bind_cols(docvars(corp)) |>
+  group_by(pais, rama_feminista) |>
+  summarise(across(defensa:brechas, mean, na.rm = TRUE)) |>
+  pivot_longer(defensa:brechas,
+               names_to = "dimension",
+               values_to = "valor")
+```
+
+```{r}
+ggplot(df_plot_disc_rama, aes(x = pais, y = valor, fill = dimension)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = round(valor, 1)),
+            position = position_dodge(width = 1), vjust = -1,
+            size = 3) +
+  facet_wrap(~rama_feminista) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_y_continuous(limits = c(0,100),) +
+  labs(
+    title = "Intensidad de marcos discursivos por país y nivel territorial",
+    x = "País",
+    y = "Frecuencia promedio (proporcional)",
+    fill = "Dimensión"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
+
+
+### marcos discursivos por tipo de femocrata
+
+
+ 
+```{r}
+df_plot_disc_fem <- dfm_dic |>
+  convert(to = "data.frame") |>
+  bind_cols(docvars(corp)) |>
+  group_by(pais, tipo_de_femocrata) |>
+  summarise(across(defensa:brechas, mean, na.rm = TRUE)) |>
+  pivot_longer(defensa:brechas,
+               names_to = "dimension",
+               values_to = "valor")
+```
+
+```{r}
+ggplot(df_plot_disc_fem, aes(x = pais, y = valor, fill = dimension)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = round(valor, 1)),
+            position = position_dodge(width = 1), vjust = -1,
+            size = 3) +
+  facet_wrap(~tipo_de_femocrata) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_y_continuous(limits = c(0,100),) +
+  labs(
+    title = "Intensidad de marcos discursivos por país y nivel territorial",
+    x = "País",
+    y = "Frecuencia promedio (proporcional)",
+    fill = "Dimensión"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
+
+
+### marcos discursivos por autonomía que expande
+
+
+ 
+```{r}
+df_plot_disc_aut <- dfm_dic |>
+  convert(to = "data.frame") |>
+  bind_cols(docvars(corp)) |>
+  group_by(pais, autonomia_que_expande) |>
+  summarise(across(defensa:brechas, mean, na.rm = TRUE)) |>
+  pivot_longer(defensa:brechas,
+               names_to = "dimension",
+               values_to = "valor")
+```
+
+```{r}
+ggplot(df_plot_disc_aut, aes(x = pais, y = valor, fill = dimension)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = round(valor, 1)),
+            position = position_dodge(width = 1), vjust = -1,
+            size = 3) +
+  facet_wrap(~autonomia_que_expande) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_y_continuous(limits = c(0,100),) +
+  labs(
+    title = "Intensidad de marcos discursivos por país y nivel territorial",
+    x = "País",
+    y = "Frecuencia promedio (proporcional)",
+    fill = "Dimensión"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
+
+
+
+
+
+
+# Diccionario Temas Vinculos
+
+```{r}
+
+# Diccionario: defensa
+dict_ong <- df_diccionarios_tematicos  |> 
+  filter(ong == 1) |> 
+  pull(tokens)
+
+# Diccionario: antigénero
+dict_mov_feminista <- df_diccionarios_tematicos |> 
+  filter(mov_feminista == 1)  |> 
+  pull(tokens)
+
+# Diccionario: brechas
+dict_partidos <- df_diccionarios_tematicos |> 
+  filter(partidos == 1)  |> 
+  pull(tokens)
+```
+
+
+```{r}
+diccionario_vinculos <- dictionary(list(
+  ong = dict_ong,
+  mov_feminista = dict_mov_feminista,
+  partidos = dict_partidos
+))
+```
+
+
+```{r}
+dfm_dic_vinculos <- dfm(toks)  |> 
+  dfm_lookup(diccionario_vinculos)
+
+docvars(dfm_dic_vinculos)
+```
+
+```{r}
+dfm_prop_vinc <- dfm_weight(dfm_dic_vinculos, scheme = "prop")
+```
+
+
+### vinculos por nivel territorial
+
+
+```{r}
+
+df_plot_vinc <- dfm_dic_vinculos |>
+  convert(to = "data.frame") |>
+  bind_cols(docvars(corp)) |>
+  group_by(pais, nivel_territorial) |>
+  summarise(across(ong:partidos, mean, na.rm = TRUE)) |>
+  pivot_longer(ong:partidos,
+               names_to = "dimension",
+               values_to = "valor")
+```
+
+```{r}
+ggplot(df_plot_vinc, aes(x = pais, y = valor, fill = dimension)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = round(valor, 1)),
+            position = position_dodge(width = 1), vjust = -1,
+            size = 3) +
+  facet_wrap(~nivel_territorial) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_y_continuous(limits = c(0,100),) +
+  labs(
+    title = "Intensidad de mención de relaciones con agrupaciones nuevas por país y nivel territorial",
+    x = "País",
+    y = "Frecuencia promedio (proporcional)",
+    fill = "Dimensión"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
+
+
+### Vinculo por rama feminista
+
+
+```{r}
+
+df_plot_vinc_rama <- dfm_dic_vinculos |>
+  convert(to = "data.frame") |>
+  bind_cols(docvars(corp)) |>
+  group_by(pais, rama_feminista) |>
+  summarise(across(ong:partidos, mean, na.rm = TRUE)) |>
+  pivot_longer(ong:partidos,
+               names_to = "dimension",
+               values_to = "valor")
+```
+
+```{r}
+ggplot(df_plot_vinc_rama, aes(x = pais, y = valor, fill = dimension)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = round(valor, 1)),
+            position = position_dodge(width = 1), vjust = -1,
+            size = 3) +
+  facet_wrap(~rama_feminista) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_y_continuous(limits = c(0,100),) +
+  labs(
+    title = "Intensidad de mención de relaciones con agrupaciones nuevas por país y rama feminista",
+    x = "País",
+    y = "Frecuencia promedio (proporcional)",
+    fill = "Dimensión"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
+
+
+
+
+### Vinculo por tipo de femocrata
+
+
+
+```{r}
+
+df_plot_vinc_tipo <- dfm_dic_vinculos |>
+  convert(to = "data.frame") |>
+  bind_cols(docvars(corp)) |>
+  group_by(pais, tipo_de_femocrata) |>
+  summarise(across(ong:partidos, mean, na.rm = TRUE)) |>
+  pivot_longer(ong:partidos,
+               names_to = "dimension",
+               values_to = "valor")
+```
+
+```{r}
+ggplot(df_plot_vinc_tipo, aes(x = pais, y = valor, fill = dimension)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = round(valor, 1)),
+            position = position_dodge(width = 1), vjust = -1,
+            size = 3) +
+  facet_wrap(~tipo_de_femocrata) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_y_continuous(limits = c(0,100),) +
+  labs(
+    title = "Intensidad de mención de relaciones con agrupaciones nuevas por país y nivel territorial",
+    x = "País",
+    y = "Frecuencia promedio (proporcional)",
+    fill = "Dimensión"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
+
+
+
+
+### Vinculo por autonomía que expande
+
+
+```{r}
+
+df_plot_vinc_autonomia <- dfm_dic_vinculos |>
+  convert(to = "data.frame") |>
+  bind_cols(docvars(corp)) |>
+  group_by(pais, autonomia_que_expande) |>
+  summarise(across(ong:partidos, mean, na.rm = TRUE)) |>
+  pivot_longer(ong:partidos,
+               names_to = "dimension",
+               values_to = "valor")
+```
+
+```{r}
+ggplot(df_plot_vinc_autonomia, aes(x = pais, y = valor, fill = dimension)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = round(valor, 1)),
+            position = position_dodge(width = 1), vjust = -1,
+            size = 3) +
+  facet_wrap(~autonomia_que_expande) +
+  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f")) +
+  scale_y_continuous(limits = c(0,100),) +
+  labs(
+    title = "Intensidad de mención de relaciones con agrupaciones nuevas por país y nivel territorial",
+    x = "País",
+    y = "Frecuencia promedio (proporcional)",
+    fill = "Dimensión"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
+
+
 
