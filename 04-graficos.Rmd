@@ -30,11 +30,10 @@ library(hrbrthemes)
 source("99-funciones.R")
 ```
 
-
 Carga de base de datos 
 
 ```{r}
-dfm_docs <- read_rds("outputs/260423-data_dfm.rds")
+dfm_docs <- read_rds("outputs/260428-data_dfm.rds")
 ```
 
 
@@ -359,8 +358,8 @@ docvars(dfm_docs)
 plot_keyness_heatmap(dfm_docs,
                      "nivel_territorial",
                      n_top = 15,
-                     titulo = "Nivel territorial",
-                     subtitulo = "Subtitulo")
+                     titulo = NULL,
+                     subtitulo = NULL)
 ```
 
 

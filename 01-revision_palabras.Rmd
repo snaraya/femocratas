@@ -29,7 +29,7 @@ library(hrbrthemes)
 Cargar base para revisar:
 
 ```{r}
-toks <- read_rds("outputs/260422-toks.rds")
+toks <- read_rds("outputs/260428-toks.rds")
 ```
 
 Ver palabras que antes y después de una palabra clave:
@@ -38,7 +38,7 @@ Ver palabras que antes y después de una palabra clave:
 
 
 ```{r}
-kw <- kwic(toks, pattern = "área", window = 2)
+kw <- kwic(toks, pattern = "fondo", window = 2)
 
 # Separar contexto
 df_kw <- as.data.frame(kw)
