@@ -158,6 +158,29 @@ ggplot(df_plot_disc_rama, aes(x = pais, y = valor, fill = dimension)) +
 ```
 
 
+```{r}
+ggplot(df_plot_disc_rama, aes(x = dimension, y = pais, fill = valor)) +
+  geom_tile() +
+  facet_wrap(~rama_feminista) +
+    scale_fill_gradient2(
+    low = "#e63946", # Palabra menos característica de este grupo
+    mid = "#f1faee", # Promedio
+    high = "#1d3557", # Palabra más característica de ese grupo
+    midpoint = 10,
+    name = "Representación\n"
+  ) +
+  labs(
+    title = "Mapa de intensidad discursiva",
+    x = "Dimensión",
+    y = "País",
+    fill = "Intensidad"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
+
+
+
+
 ### marcos discursivos por tipo de femocrata
 
 
@@ -192,6 +215,29 @@ ggplot(df_plot_disc_fem, aes(x = pais, y = valor, fill = dimension)) +
 ```
 
 
+```{r}
+ggplot(df_plot_disc_fem, aes(x = dimension, y = pais, fill = valor)) +
+  geom_tile() +
+  facet_wrap(~tipo_de_femocrata) +
+    scale_fill_gradient2(
+    low = "#e63946", # Palabra menos característica de este grupo
+    mid = "#f1faee", # Promedio
+    high = "#1d3557", # Palabra más característica de ese grupo
+    midpoint = 10,
+    name = "Representación\n"
+  ) +
+  labs(
+    title = "Mapa de intensidad discursiva",
+    x = "Dimensión",
+    y = "País",
+    fill = "Intensidad"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
+
+
+
+
 ### marcos discursivos por autonomía que expande
 
 
@@ -221,6 +267,27 @@ ggplot(df_plot_disc_aut, aes(x = pais, y = valor, fill = dimension)) +
     x = "País",
     y = "Frecuencia promedio (proporcional)",
     fill = "Dimensión"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
+
+
+```{r}
+ggplot(df_plot_disc_aut, aes(x = dimension, y = pais, fill = valor)) +
+  geom_tile() +
+  facet_wrap(~autonomia_que_expande) +
+    scale_fill_gradient2(
+    low = "#e63946", # Palabra menos característica de este grupo
+    mid = "#f1faee", # Promedio
+    high = "#1d3557", # Palabra más característica de ese grupo
+    midpoint = 10,
+    name = "Representación\n"
+  ) +
+  labs(
+    title = "Mapa de intensidad discursiva",
+    x = "Dimensión",
+    y = "País",
+    fill = "Intensidad"
   ) +
   theme_minimal(base_family = "Roboto")
 ```
@@ -306,6 +373,30 @@ ggplot(df_plot_vinc, aes(x = pais, y = valor, fill = dimension)) +
 ```
 
 
+
+```{r}
+ggplot(df_plot_vinc, aes(x = dimension, y = pais, fill = valor)) +
+  geom_tile() +
+  facet_wrap(~nivel_territorial) +
+    scale_fill_gradient2(
+    low = "#e63946", # Palabra menos característica de este grupo
+    mid = "#f1faee", # Promedio
+    high = "#1d3557", # Palabra más característica de ese grupo
+    midpoint = 10,
+    name = "Representación\n"
+  ) +
+  labs(
+    title = "Mapa de intensidad discursiva",
+    x = "Dimensión",
+    y = "País",
+    fill = "Intensidad"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
+
+
+
+
 ### Vinculo por rama feminista
 
 
@@ -335,6 +426,28 @@ ggplot(df_plot_vinc_rama, aes(x = pais, y = valor, fill = dimension)) +
     x = "País",
     y = "Frecuencia promedio (proporcional)",
     fill = "Dimensión"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
+
+
+
+```{r}
+ggplot(df_plot_vinc_rama, aes(x = dimension, y = pais, fill = valor)) +
+  geom_tile() +
+  facet_wrap(~rama_feminista) +
+    scale_fill_gradient2(
+    low = "#e63946", # Palabra menos característica de este grupo
+    mid = "#f1faee", # Promedio
+    high = "#1d3557", # Palabra más característica de ese grupo
+    midpoint = 10,
+    name = "Representación\n"
+  ) +
+  labs(
+    title = "Mapa de intensidad discursiva",
+    x = "Dimensión",
+    y = "País",
+    fill = "Intensidad"
   ) +
   theme_minimal(base_family = "Roboto")
 ```
@@ -379,6 +492,30 @@ ggplot(df_plot_vinc_tipo, aes(x = pais, y = valor, fill = dimension)) +
 
 
 
+```{r}
+ggplot(df_plot_vinc_tipo, aes(x = dimension, y = pais, fill = valor)) +
+  geom_tile() +
+  facet_wrap(~tipo_de_femocrata) +
+    scale_fill_gradient2(
+    low = "#e63946", # Palabra menos característica de este grupo
+    mid = "#f1faee", # Promedio
+    high = "#1d3557", # Palabra más característica de ese grupo
+    midpoint = 10,
+    name = "Representación\n"
+  ) +
+  labs(
+    title = "Mapa de intensidad discursiva",
+    x = "Dimensión",
+    y = "País",
+    fill = "Intensidad"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
+
+
+
+
+
 ### Vinculo por autonomía que expande
 
 
@@ -412,5 +549,27 @@ ggplot(df_plot_vinc_autonomia, aes(x = pais, y = valor, fill = dimension)) +
   theme_minimal(base_family = "Roboto")
 ```
 
+
+
+
+```{r}
+ggplot(df_plot_vinc_autonomia, aes(x = dimension, y = pais, fill = valor)) +
+  geom_tile() +
+  facet_wrap(~autonomia_que_expande) +
+    scale_fill_gradient2(
+    low = "#e63946", # Palabra menos característica de este grupo
+    mid = "#f1faee", # Promedio
+    high = "#1d3557", # Palabra más característica de ese grupo
+    midpoint = 10,
+    name = "Representación\n"
+  ) +
+  labs(
+    title = "Mapa de intensidad discursiva",
+    x = "Dimensión",
+    y = "País",
+    fill = "Intensidad"
+  ) +
+  theme_minimal(base_family = "Roboto")
+```
 
 
