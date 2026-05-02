@@ -116,7 +116,8 @@ plot_keyness_heatmap <- function(dfm,
                                  var_autonomia,
                                  n_top = 20,
                                  titulo = "",
-                                 subtitulo = "") {
+                                 subtitulo = "",
+                                 midpoint = midpoint) {
   
   library(dplyr)
   library(tidyr)
@@ -154,7 +155,7 @@ plot_keyness_heatmap <- function(dfm,
   df_plot <- key_all |>
     filter(feature %in% top_words) |>
     mutate(
-      feature = str_to_title(gsub("_", " ", feature)),
+      feature = str_to_sentence(gsub("_", " ", feature)),
       pais = str_split(grupo, "\\_", simplify = TRUE)[,1],
       tipo = str_split(grupo, "\\_", simplify = TRUE)[,2]
     )
@@ -163,10 +164,13 @@ plot_keyness_heatmap <- function(dfm,
   ggplot(df_plot, aes(x = pais, y = reorder(feature, chi2), fill = chi2)) +
     geom_tile(color = "white", linewidth = 0.3) +
     scale_fill_gradient2(
-      low = "#e63946",
-      mid = "#f1faee",
-      high = "#1d3557",
-      midpoint = 0,
+      low = "#ecf39e",
+      # Palabra menos característica de este grupo
+      mid = "#4f772d",
+      # Promedio
+      high = "#132a13",
+      # Palabra más característica de ese grupo
+      midpoint = midpoint,
       name = "Keyness (chi²)"
     ) +
     facet_wrap(~tipo) +
@@ -174,12 +178,14 @@ plot_keyness_heatmap <- function(dfm,
       title = titulo,
       subtitle = subtitulo,
       x = NULL,
-      y = NULL
+      y = NULL,
+      caption = "Fuente: Elaboración propia en base a las entrevistas."
     ) +
-    theme_minimal(base_family = "Roboto") +
+    theme_minimal(base_family = "Times New Roman") +
     theme(
       panel.grid = element_blank(),
-      plot.title = element_text(face = "bold")
+      plot.title = element_text(face = "bold"),
+      plot.caption.position = "plot"
     )
 }
 
@@ -231,8 +237,77 @@ guardar_fig <- function(plot, nombre_archivo, carpeta = "figs",
     plot = last_plot(),
     width = width_px / dpi,
     height = height_px / dpi,
-    units = "in",
+    units = "px",
     dpi = dpi
   )
   
+}
+
+
+grafico_dimensiones <- function(data, facet_var) {
+  
+  ggplot(data, aes(x = pais, y = valor, fill = dimension)) +
+    geom_col(position = "stack") +
+    geom_text(aes(label = paste0(round(valor, 2)*100, "%")),
+              position = position_stack(vjust = 0.5),
+              color = "white",
+              hjust = 0.5,
+              size = 3) +
+    
+    facet_wrap(as.formula(paste("~", facet_var)), ncol = 1) +
+    
+    scale_fill_manual(
+      values = c("#bc4749", "#a7c957", "#386641"),
+      labels = c("Discurso antigénero", "Brechas de género", "Defensa de derechos")
+    ) +
+    
+    scale_y_continuous(
+      limits = c(0, 1),
+      labels = scales::percent
+    ) +
+    
+    labs(
+      title = NULL,
+      x = NULL,
+      y = "Porcentaje",
+      fill = "Dimensión",
+      caption = "Fuente: Elaboración propia en base a las entrevistas."
+    ) +
+    coord_flip() +
+    theme_minimal(base_family = "Times New Roman") +
+    theme(plot.caption.position = "plot")
+}
+
+grafico_dimensiones_vinculos <- function(data, facet_var) {
+  
+  ggplot(data, aes(x = pais, y = valor, fill = dimension)) +
+    geom_col(position = "stack") +
+    geom_text(aes(label = paste0(round(valor, 2)*100, "%")),
+              position = position_stack(vjust = 0.5),
+              color = "white",
+              hjust = 0.5,
+              size = 3) +
+    
+    facet_wrap(as.formula(paste("~", facet_var)), ncol = 1) +
+    
+    scale_fill_manual(
+      values = c("#e09f3e", "#a7c957", "#386641"),
+      labels = c("Estudios/academia", "Movimiento feminista", "Partidos políticos")
+    ) +
+    
+    scale_y_continuous(
+      limits = c(0, 1),
+      labels = scales::percent
+    ) +
+    
+    labs(
+      title = NULL,
+      x = NULL,
+      y = "Porcentaje",
+      fill = "Dimensión",
+      caption = "Fuente: Elaboración propia en base a las entrevistas."
+    ) +
+    coord_flip() +
+    theme_minimal(base_family = "Times New Roman") +
+    theme(plot.caption.position = "plot")
 }

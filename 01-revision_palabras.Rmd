@@ -29,7 +29,7 @@ library(hrbrthemes)
 Cargar base para revisar:
 
 ```{r}
-toks <- read_rds("outputs/260428-toks.rds")
+toks <- read_rds("outputs/260429-toks.rds")
 ```
 
 Ver palabras que antes y después de una palabra clave:
@@ -38,10 +38,12 @@ Ver palabras que antes y después de una palabra clave:
 
 
 ```{r}
-kw <- kwic(toks, pattern = "fondo", window = 2)
+kw <- kwic(toks, pattern = "presas", window = 5)
 
 # Separar contexto
 df_kw <- as.data.frame(kw)
+
+View(df_kw)
 ```
 
 * Romper: romper modelo, romper lógica (patriarcal), romper pactos, romper segregación.

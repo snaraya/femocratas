@@ -30,10 +30,14 @@ Cargar base de datos
 
 ```{r}
 df_diccionarios_tematicos <- readxl::read_xlsx("input/260427-diccionario.xlsx")
+
+colnames(df_diccionarios_tematicos)
 ```
 
 ```{r}
 toks <- read_rds("outputs/260429-toks.rds")
+
+docvars(toks)
 ```
 
 
@@ -81,11 +85,11 @@ dfm_prop <- dfm_weight(dfm_dic, scheme = "prop")
 ### Nivel territorial
 
 ```{r}
-df_plot_nivel <- dfm_dic |>
+df_plot_nivel <- dfm_prop |>
   convert(to = "data.frame") |>
   bind_cols(docvars(toks)) |>
   group_by(pais, nivel_territorial) |>
-  summarise(across(defensa:brechas, mean, na.rm = TRUE)) |>
+  summarise(across(defensa:brechas, mean, na.rm = T)) |> 
   pivot_longer(defensa:brechas,
                names_to = "dimension",
                values_to = "valor")
@@ -95,22 +99,7 @@ df_plot_nivel |>
 ```
 
 ```{r}
-ggplot(df_plot_nivel, aes(x = pais, y = valor, fill = dimension)) +
-  geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor)),
-            position = position_dodge(width = 1), vjust = -1, hjust = 0.5,
-            size = 3) +
-  facet_wrap(~nivel_territorial) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
-                    labels = c("Discurso antigénero", "Brechas de género", "Defensa de derechos")) +
-  scale_y_continuous(limits = c(0,100),) +
-  labs(
-    title = NULL,
-    x = "País",
-    y = "Frecuencia promedio (proporcional)",
-    fill = "Dimensión"
-  ) +
-  theme_minimal(base_family = "Roboto")
+df_plot_nivel |> grafico_dimensiones(facet_var = "nivel_territorial")
 ```
 
 ```{r}
@@ -127,13 +116,13 @@ df_plot_nivel |>
   geom_tile() +
   facet_wrap( ~ nivel_territorial) +
   scale_fill_gradient2(
-    low = "#ecf39e",
+    low = "#f2e8cf",
     # Palabra menos característica de este grupo
-    mid = "#4f772d",
+    mid = "#a7c957",
     # Promedio
-    high = "#132a13",
+    high = "#386641",
     # Palabra más característica de ese grupo
-    midpoint = 10,
+    midpoint = 0.3,
     name = "Representación\n"
   ) +
   labs(title = NULL,
@@ -146,9 +135,9 @@ df_plot_nivel |>
 ### Rama feminista
 
 ```{r}
-df_plot_disc_rama <- dfm_dic |>
+df_plot_disc_rama <- dfm_prop |>
   convert(to = "data.frame") |>
-  bind_cols(docvars(corp)) |>
+  bind_cols(docvars(toks)) |>
   group_by(pais, rama_feminista) |>
   summarise(across(defensa:brechas, mean, na.rm = TRUE)) |>
   pivot_longer(defensa:brechas,
@@ -157,22 +146,7 @@ df_plot_disc_rama <- dfm_dic |>
 ```
 
 ```{r}
-ggplot(df_plot_disc_rama, aes(x = pais, y = valor, fill = dimension)) +
-  geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor, )),
-            position = position_dodge(width = 1), vjust = -1,
-            size = 3) +
-  facet_wrap(~rama_feminista) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
-                    labels = c("Discurso antigénero", "Brechas de género", "Defensa de derechos")) +
-  scale_y_continuous(limits = c(0,100),) +
-  labs(
-    title = "Intensidad de marcos discursivos por país y nivel territorial",
-    x = "País",
-    y = "Frecuencia promedio (proporcional)",
-    fill = "Dimensión"
-  ) +
-  theme_minimal(base_family = "Roboto")
+df_plot_disc_rama |> grafico_dimensiones(facet_var = "rama_feminista")
 ```
 
 
@@ -214,9 +188,9 @@ df_plot_disc_rama |>
 
  
 ```{r}
-df_plot_disc_fem <- dfm_dic |>
+df_plot_disc_fem <- dfm_prop |>
   convert(to = "data.frame") |>
-  bind_cols(docvars(corp)) |>
+  bind_cols(docvars(toks)) |>
   group_by(pais, tipo_de_femocrata) |>
   summarise(across(defensa:brechas, mean, na.rm = TRUE)) |>
   pivot_longer(defensa:brechas,
@@ -225,22 +199,7 @@ df_plot_disc_fem <- dfm_dic |>
 ```
 
 ```{r}
-ggplot(df_plot_disc_fem, aes(x = pais, y = valor, fill = dimension)) +
-  geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor)),
-            position = position_dodge(width = 1), vjust = -1,
-            size = 3) +
-  facet_wrap(~tipo_de_femocrata) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
-                    labels = c("Discurso antigénero", "Brechas de género", "Defensa de derechos")) +
-  scale_y_continuous(limits = c(0,100),) +
-  labs(
-    title = "Intensidad de marcos discursivos por país y nivel territorial",
-    x = "País",
-    y = "Frecuencia promedio (proporcional)",
-    fill = "Dimensión"
-  ) +
-  theme_minimal(base_family = "Roboto")
+df_plot_disc_fem |> grafico_dimensiones(facet_var = "tipo_de_femocrata")
 ```
 
 
@@ -282,9 +241,9 @@ df_plot_disc_fem |>
 
  
 ```{r}
-df_plot_disc_aut <- dfm_dic |>
+df_plot_disc_aut <- dfm_prop |>
   convert(to = "data.frame") |>
-  bind_cols(docvars(corp)) |>
+  bind_cols(docvars(toks)) |>
   group_by(pais, autonomia_que_expande) |>
   summarise(across(defensa:brechas, mean, na.rm = TRUE)) |>
   pivot_longer(defensa:brechas,
@@ -293,22 +252,7 @@ df_plot_disc_aut <- dfm_dic |>
 ```
 
 ```{r}
-ggplot(df_plot_disc_aut, aes(x = pais, y = valor, fill = dimension)) +
-  geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor)),
-            position = position_dodge(width = 1), vjust = -1,
-            size = 3) +
-  facet_wrap(~autonomia_que_expande) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
-                    labels = c("Discurso antigénero", "Brechas de género", "Defensa de derechos")) +
-  scale_y_continuous(limits = c(0,100),) +
-  labs(
-    title = NULL,
-    x = "País",
-    y = "Frecuencia promedio (proporcional)",
-    fill = "Dimensión"
-  ) +
-  theme_minimal(base_family = "Roboto")
+df_plot_disc_aut |> grafico_dimensiones(facet_var = "autonomia_que_expande")
 ```
 
 
@@ -342,18 +286,34 @@ df_plot_disc_aut |>
   theme_minimal(base_family = "Roboto")
 ```
 
+Total tokens
+
+```{r}
+df_diccionarios_tematicos |> 
+  filter(defensa == 1) |> 
+  count()
+
+df_diccionarios_tematicos |> 
+  filter(antigenero == 1) |> 
+  count()
+
+df_diccionarios_tematicos |> 
+  filter(brechas == 1) |> 
+  count()
+```
 
 
 
 
-
-# Diccionario Temas Vinculos
+# Diccionario Vinculos
 
 ```{r}
 
+colnames(df_diccionarios_tematicos)
+
 # Diccionario: defensa
-dict_ong <- df_diccionarios_tematicos  |> 
-  filter(ong == 1) |> 
+dict_academia <- df_diccionarios_tematicos  |> 
+  filter(academia == 1) |> 
   pull(tokens)
 
 # Diccionario: antigénero
@@ -370,7 +330,7 @@ dict_partidos <- df_diccionarios_tematicos |>
 
 ```{r}
 diccionario_vinculos <- dictionary(list(
-  ong = dict_ong,
+  academia = dict_academia,
   mov_feminista = dict_mov_feminista,
   partidos = dict_partidos
 ))
@@ -394,35 +354,19 @@ dfm_prop_vinc <- dfm_weight(dfm_dic_vinculos, scheme = "prop")
 
 ```{r}
 
-df_plot_vinc <- dfm_dic_vinculos |>
+df_plot_vinc <- dfm_prop_vinc |>
   convert(to = "data.frame") |>
-  bind_cols(docvars(corp)) |>
+  bind_cols(docvars(toks)) |>
   group_by(pais, nivel_territorial) |>
-  summarise(across(ong:partidos, mean, na.rm = TRUE)) |>
-  pivot_longer(ong:partidos,
+  summarise(across(academia:partidos, mean, na.rm = TRUE)) |>
+  pivot_longer(academia:partidos,
                names_to = "dimension",
                values_to = "valor")
 ```
 
 ```{r}
-ggplot(df_plot_vinc, aes(x = pais, y = valor, fill = dimension)) +
-  geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor)),
-            position = position_dodge(width = 1), vjust = -1,
-            size = 3) +
-  facet_wrap(~nivel_territorial) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
-                    labels = c("Movimiento feminista", "ONG", "Partidos políticos")) +
-  scale_y_continuous(limits = c(0,100),) +
-  labs(
-    title = NULL,
-    x = "País",
-    y = "Frecuencia promedio (proporcional)",
-    fill = "Dimensión"
-  ) +
-  theme_minimal(base_family = "Roboto")
+df_plot_vinc |> grafico_dimensiones_vinculos(facet_var = "nivel_territorial")
 ```
-
 
 
 ```{r}
@@ -455,26 +399,6 @@ df_plot_vinc |>
   theme_minimal(base_family = "Roboto")
 ```
 
-Modelo
-
-```{r}
-df_doc <- dfm_dic_vinculos |>
-  convert(to = "data.frame") |>
-  bind_cols(docvars(corp))
-
-lm_mov <- lm(mov_feminista ~ pais * nivel_territorial, data = df_doc)
-
-summary(lm_mov)
-
-lm_ong <- lm(ong ~ pais * nivel_territorial, data = df_doc)
-
-summary(lm_ong)
-
-lm_partidos <- lm(partidos ~ pais * nivel_territorial, data = df_doc)
-
-summary(lm_partidos)
-```
-
 
 
 ### Rama feminista
@@ -482,33 +406,18 @@ summary(lm_partidos)
 
 ```{r}
 
-df_plot_vinc_rama <- dfm_dic_vinculos |>
+df_plot_vinc_rama <- dfm_prop_vinc |>
   convert(to = "data.frame") |>
-  bind_cols(docvars(corp)) |>
+  bind_cols(docvars(toks)) |>
   group_by(pais, rama_feminista) |>
-  summarise(across(ong:partidos, mean, na.rm = TRUE)) |>
-  pivot_longer(ong:partidos,
+  summarise(across(academia:partidos, mean, na.rm = TRUE)) |>
+  pivot_longer(academia:partidos,
                names_to = "dimension",
                values_to = "valor")
 ```
 
 ```{r}
-ggplot(df_plot_vinc_rama, aes(x = pais, y = valor, fill = dimension)) +
-  geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor)),
-            position = position_dodge(width = 1), vjust = -1,
-            size = 3) +
-  facet_wrap(~rama_feminista) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
-                    labels = c("Movimiento feminista", "ONG", "Partidos políticos")) +
-  scale_y_continuous(limits = c(0,100),) +
-  labs(
-    title = NULL,
-    x = "País",
-    y = "Frecuencia promedio (proporcional)",
-    fill = "Dimensión"
-  ) +
-  theme_minimal(base_family = "Roboto")
+df_plot_vinc_rama |> grafico_dimensiones_vinculos(facet_var = "rama_feminista")
 ```
 
 
@@ -552,34 +461,20 @@ df_plot_vinc_rama |>
 
 ```{r}
 
-df_plot_vinc_tipo <- dfm_dic_vinculos |>
+df_plot_vinc_tipo <- dfm_prop_vinc |>
   convert(to = "data.frame") |>
-  bind_cols(docvars(corp)) |>
+  bind_cols(docvars(toks)) |>
   group_by(pais, tipo_de_femocrata) |>
-  summarise(across(ong:partidos, mean, na.rm = TRUE)) |>
-  pivot_longer(ong:partidos,
+  summarise(across(academia:partidos, mean, na.rm = TRUE)) |>
+  pivot_longer(academia:partidos,
                names_to = "dimension",
                values_to = "valor")
 ```
 
 ```{r}
-ggplot(df_plot_vinc_tipo, aes(x = pais, y = valor, fill = dimension)) +
-  geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor)),
-            position = position_dodge(width = 1), vjust = -1,
-            size = 3) +
-  facet_wrap(~tipo_de_femocrata) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
-                    labels = c("Movimiento feminista", "ONG", "Partidos políticos")) +
-  scale_y_continuous(limits = c(0,100),) +
-  labs(
-    title = NULL,
-    x = "País",
-    y = "Frecuencia promedio (proporcional)",
-    fill = "Dimensión"
-  ) +
-  theme_minimal(base_family = "Roboto")
+df_plot_vinc_tipo |> grafico_dimensiones_vinculos(facet_var = "tipo_de_femocrata")
 ```
+
 
 
 
@@ -620,33 +515,19 @@ df_plot_vinc_tipo |>
 
 ```{r}
 
-df_plot_vinc_autonomia <- dfm_dic_vinculos |>
+df_plot_vinc_autonomia <- dfm_prop_vinc |>
   convert(to = "data.frame") |>
-  bind_cols(docvars(corp)) |>
+  bind_cols(docvars(toks)) |>
   group_by(pais, autonomia_que_expande) |>
-  summarise(across(ong:partidos, mean, na.rm = TRUE)) |>
-  pivot_longer(ong:partidos,
+  summarise(across(academia:partidos, mean, na.rm = TRUE)) |>
+  pivot_longer(academia:partidos,
                names_to = "dimension",
                values_to = "valor")
 ```
 
 ```{r}
-ggplot(df_plot_vinc_autonomia, aes(x = pais, y = valor, fill = dimension)) +
-  geom_col(position = "dodge") +
-  geom_text(aes(label = round(valor)),
-            position = position_dodge(width = 1), vjust = -1,
-            size = 3) +
-  facet_wrap(~autonomia_que_expande) +
-  scale_fill_manual(values = c("#e76f51", "#e9c46a", "#2a9d8f"),
-                    labels = c("Movimiento feminista", "ONG", "Partidos políticos")) +
-  scale_y_continuous(limits = c(0,100),) +
-  labs(
-    title = NULL,
-    x = "País",
-    y = "Frecuencia promedio (proporcional)",
-    fill = "Dimensión"
-  ) +
-  theme_minimal(base_family = "Roboto")
+df_plot_vinc_autonomia |> grafico_dimensiones_vinculos(facet_var = "autonomia_que_expande")
+
 ```
 
 
@@ -682,4 +563,20 @@ df_plot_vinc_autonomia |>
   theme_minimal(base_family = "Roboto")
 ```
 
+
+Total tokens
+
+```{r}
+df_diccionarios_tematicos |> 
+  filter(academia == 1) |> 
+  count()
+
+df_diccionarios_tematicos |> 
+  filter(mov_feminista == 1) |> 
+  count()
+
+df_diccionarios_tematicos |> 
+  filter(partidos == 1) |> 
+  count()
+```
 

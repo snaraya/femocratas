@@ -37,254 +37,6 @@ dfm_docs <- read_rds("outputs/260429-data_dfm.rds")
 ```
 
 
-```{r}
-dfm_grouped <- dfm_group(
-  dfm_docs,
-  groups = interaction(docvars(dfm_docs)$pais,
-                       docvars(dfm_docs)$nivel_territorial)
-)
-
-topfeatures(dfm_grouped, 50)
-
-df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
-  pivot_longer(!doc_id,
-               names_to = "palabra",
-               values_to = "frecuencia")
-```
-
-# Dumbell
-
-## Argentina
-
-```{r}
-df_wide_argentina <- df_tidy |> 
-  mutate(
-    pais = str_split(doc_id, "\\.", simplify = TRUE)[,1],
-  ) |>
-  filter(pais == "Argentina") |> 
-  pivot_wider(names_from = doc_id, values_from = frecuencia) |> 
-  rowwise() |> 
-  janitor::clean_names() |> 
-  mutate(diferencia = argentina_nacional - argentina_subnacional) |> 
-  ungroup() |> 
-  slice_max(order_by = diferencia, n = 20)
-
-df_wide_argentina |> 
-  filter(palabra == "programa")
-
-df_wide_argentina |> 
-  mutate(palabra = str_to_upper(gsub("_", " ", palabra))) |> 
-  pivot_longer(
-    cols = c(argentina_nacional, argentina_subnacional),
-    names_to = "grupo",
-    values_to = "frecuencia"
-  ) |> 
-  mutate(
-    grupo = recode(grupo,
-      argentina_nacional = "Nacional",
-      argentina_subnacional = "Provincial"
-    )
-  ) |> 
-  ggplot(aes(x = frecuencia, y = palabra, color = grupo)) +
-  geom_line(aes(group = palabra), color = "#e3e2e1", linewidth = 1) +
-  geom_point(size = 3) +
-  scale_color_manual(
-    values = c(
-      "Nacional" = "#5b8124",
-      "Provincial" = "#bad744"
-    ),
-    name = "Nivel territorial"
-  ) +
-  labs(
-    title = "Diferencias léxicas entre femócratas de acuerdo a nivel territorial.",
-    subtitle = "Cada línea conecta la diferencia de términos entre nivel nacional y provincial en Argentina.",
-    x = "Frecuencia",
-    y = NULL
-  ) +
-  theme_minimal(base_family = "Roboto") +
-  theme(panel.grid.major.x = element_line(linewidth = 0.01))
-```
-
-## España
-
-```{r}
-df_wide_españa <- df_tidy |> 
-  mutate(
-    pais = str_split(doc_id, "\\.", simplify = TRUE)[,1],
-  ) |>
-  filter(pais == "España") |> 
-  pivot_wider(names_from = doc_id, values_from = frecuencia) |> 
-  rowwise() |> 
-  janitor::clean_names() |> 
-  mutate(diferencia = espana_nacional - espana_subnacional) |> 
-  ungroup() |> 
-  slice_max(order_by = diferencia, n = 20)
-
-df_wide_españa |> 
-  filter(palabra == "programa")
-
-df_wide_españa |> 
-  mutate(palabra = str_to_upper(gsub("_", " ", palabra))) |> 
-  pivot_longer(
-    cols = c(espana_nacional, espana_subnacional),
-    names_to = "grupo",
-    values_to = "frecuencia"
-  ) |> 
-  mutate(
-    grupo = recode(grupo,
-      espana_nacional = "Nacional",
-      espana_subnacional = "Provincial"
-    )
-  ) |> 
-  ggplot(aes(x = frecuencia, y = palabra, color = grupo)) +
-  geom_line(aes(group = palabra), color = "#e3e2e1", linewidth = 1) +
-  geom_point(size = 3) +
-  scale_color_manual(
-    values = c(
-      "Nacional" = "#5b8124",
-      "Provincial" = "#bad744"
-    ),
-    name = "Nivel territorial"
-  ) +
-  labs(
-    title = "Diferencias léxicas entre femócratas de acuerdo a nivel territorial.",
-    subtitle = "Cada línea conecta la diferencia de términos entre nivel nacional y provincial en España.",
-    x = "Frecuencia",
-    y = NULL
-  ) +
-  theme_minimal(base_family = "Roboto") +
-  theme(panel.grid.major.x = element_line(linewidth = 0.01))
-```
-
-# Heatmap
-
-## Nivel territorial
-
-```{r}
-df_heatmap <- df_tidy  |> 
-  group_by(doc_id) |> 
-  mutate(prop = frecuencia / sum(frecuencia)) |> 
-  ungroup()
-
-top_words <- df_heatmap  |> 
-  group_by(palabra) |> 
-  summarise(total = sum(prop)) |> 
-  slice_max(total, n = 20) |> 
-  pull(palabra)
-
-gg_heatmap <- df_heatmap  |> 
-  group_by(palabra) |> 
-  mutate(media = mean(prop)) |> 
-  ungroup() |> 
-  mutate(log_ratio = log(prop / media))
-
-gg_heatmap  |> 
-  filter(palabra %in% top_words) |> 
-  mutate(
-    palabra = str_to_title(gsub("_", " ", palabra)),
-    palabra = reorder(palabra, log_ratio),
-    doc_id = case_match(doc_id,
-                        "Argentina.Nacional" ~ "Argentina\n(Nacional)",
-                        "Argentina.Subnacional" ~ "Argentina\n(Subnacional)",
-                        "España.Nacional" ~ "España\n(Nacional)",
-                        "España.Subnacional" ~ "España\n(Subnacional)")
-  )  |> 
-  ggplot(aes(x = doc_id, y = palabra, fill = log_ratio)) +
-  geom_tile(color = "white", linewidth = 0.3) +
-  scale_fill_gradient2(
-    low = "#e63946", # Palabra menos característica de este grupo
-    mid = "#f1faee", # Promedio
-    high = "#1d3557", # Palabra más característica de ese grupo
-    midpoint = 0,
-    name = "Representación\n"
-  ) +
-  labs(
-    title = "Diferenciación léxica por femócratas a nivel país y territorial",
-    subtitle = "Términos más característicos según sobre-representación relativa",
-    x = NULL,
-    y = NULL
-  ) +
-  theme_minimal(base_size = 12, base_family = "Roboto") +
-  theme(
-    panel.grid = element_blank(),    
-    plot.title = element_text(face = "bold")
-  )
-```
-
-
-## Tipo de femócrata
-
-```{r}
-dfm_grouped <- dfm_group(
-  dfm_docs,
-  groups = interaction(docvars(dfm_docs)$pais,
-                       docvars(dfm_docs)$tipo_de_femocrata)
-)
-
-df_tidy <- convert(dfm_grouped, to = "data.frame") |> 
-  pivot_longer(!doc_id,
-               names_to = "palabra",
-               values_to = "frecuencia")
-```
-
-
-```{r}
-
-df_heatmap <- df_tidy  |> 
-  group_by(doc_id) |> 
-  mutate(prop = frecuencia / sum(frecuencia)) |> 
-  ungroup()
-
-top_words <- df_heatmap  |> 
-  group_by(palabra) |> 
-  summarise(total = sum(prop)) |> 
-  slice_max(total, n = 20) |> 
-  pull(palabra)
-
-gg_heatmap <- df_heatmap  |> 
-  group_by(palabra) |> 
-  mutate(media = mean(prop)) |> 
-  ungroup() |> 
-  mutate(log_ratio = log(prop / media))
-
-gg_heatmap  |> 
-  filter(palabra %in% top_words) |> 
-  mutate(
-    palabra = str_to_title(gsub("_", " ", palabra)),
-    palabra = reorder(palabra, log_ratio),
-    # doc_id = case_match(doc_id,
-    #                     "Argentina.Nacional" ~ "Argentina\n(Nacional)",
-    #                     "Argentina.Provincial" ~ "Argentina\n(Provincial)",
-    #                     "España.Nacional" ~ "España\n(Nacional)",
-    #                     "España.Provincial" ~ "España\n(Provincial)"),
-    pais = str_split(doc_id, "\\.", simplify = TRUE)[,1],
-    tipo_femocrata = str_split(doc_id, "\\.", simplify = TRUE)[,2]
-  )  |> 
-  ggplot(aes(x = tipo_femocrata, y = palabra, fill = log_ratio)) +
-  geom_tile(color = "white", linewidth = 0.3) +
-  scale_fill_gradient2(
-    low = "#e63946", # Palabra menos característica de este grupo
-    mid = "#f1faee", # Promedio
-    high = "#1d3557", # Palabra más característica de ese grupo
-    midpoint = 0,
-    name = "Representación\n"
-  ) +
-  labs(
-    title = "Diferenciación léxica por tipo de femócrata",
-    subtitle = "Términos más característicos según sobre-representación relativa",
-    x = NULL,
-    y = NULL
-  ) +
-  facet_wrap(~pais) +
-  theme_minimal(base_size = 12, base_family = "Roboto") +
-  theme(
-    panel.grid = element_blank(),    
-    plot.title = element_text(face = "bold")
-  )
-```
-
-
-
 En el caso de hacer los otros grupos, es necesario elegir un nivel de referencia para hacerlo.
 
 # Dumbell con chi2
@@ -357,7 +109,7 @@ docvars(dfm_docs)
 ```{r}
 plot_keyness_heatmap(dfm_docs,
                      "nivel_territorial",
-                     n_top = 20,
+                     n_top = 15,
                      titulo = NULL,
                      subtitulo = NULL)
 ```
@@ -368,7 +120,7 @@ plot_keyness_heatmap(dfm_docs,
 ```{r}
 plot_keyness_heatmap(dfm_docs,
                      "tipo_de_femocrata",
-                     n_top = 20,
+                     n_top = 15,
                      titulo = NULL,
                      subtitulo = NULL)
 ```
@@ -378,9 +130,10 @@ plot_keyness_heatmap(dfm_docs,
 ```{r}
 plot_keyness_heatmap(dfm_docs,
                      "rama_feminista",
-                     n_top = 20,
+                     n_top = 15,
                      titulo = NULL,
-                     subtitulo = NULL)
+                     subtitulo = NULL,
+                     midpoint = 200)
 ```
 
 ## Autonomía 
@@ -388,8 +141,9 @@ plot_keyness_heatmap(dfm_docs,
 ```{r}
 plot_keyness_heatmap(dfm_docs,
                      "autonomia_que_expande",
-                     n_top = 20,
+                     n_top = 15,
                      titulo = NULL,
-                     subtitulo = NULL)
+                     subtitulo = NULL, 
+                     midpoint = 200)
 ```
 
