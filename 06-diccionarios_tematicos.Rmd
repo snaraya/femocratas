@@ -38,6 +38,8 @@ colnames(df_diccionarios_tematicos)
 toks <- read_rds("outputs/260429-toks.rds")
 
 docvars(toks)
+
+toks <- toks[docvars(toks, "pais") != "Argentina"]
 ```
 
 

@@ -108,6 +108,51 @@ entrevistas <- entrevistas |>
          entrevista_id = paste(entrevistas, pais))
 ```
 
+Gráfico caracterización muestra Chile-España
+
+```{r}
+tabla_tipo <- entrevistas |> 
+  filter(pais %in% c("Chile","España")) |> 
+  group_by(pais) |> 
+  count(tipo_de_femocrata, rama_feminista) |> 
+  group_by(pais, tipo_de_femocrata) |> 
+  mutate(p = n / sum(n))
+
+tabla_tipo |>
+  ggplot(aes(x = tipo_de_femocrata, y = p, fill = rama_feminista)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(
+      label = paste0(round(p * 100, 1), "%"),
+      colour = after_scale(colorspace::darken(fill, amount = 0.4))
+    ),
+    position = position_stack(vjust = 0.5),
+    size = 3.5,
+    fontface = "bold",
+    show.legend = FALSE
+  ) +
+  facet_grid( ~ pais) +
+  coord_flip() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(name = "Rama feminista:",
+                    values = c("#5c8001", "#7cb518", "#f3de2c")) +
+  labs(
+    x = "Tipo de femócrata",
+    y = "Porcentaje del total (%)",
+    title = "Distribución de perfiles de femócratas por país",
+    subtitle = "Composición según rama feminista de pertenencia",
+    caption = "(N = 25)\nFuente: Elaboración propia."
+  ) +
+  theme_minimal(base_family = "Roboto") +
+  theme(
+    legend.position = "top",
+    strip.text = element_text(face = "bold")
+  )
+
+```
+
+
+
 Identificador de entrevista sin extensión
 
 ```{r}
